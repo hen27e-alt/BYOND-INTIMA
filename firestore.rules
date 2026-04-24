@@ -1,0 +1,158 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Global Safety Net (Pillar 0)
+    // ===============================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ===============================================================
+    // Helper Primitives (Phase 3)
+    // ===============================================================
+    function isAuthenticated() { return request.auth != null; }
+    function isAdmin() { 
+      return isAuthenticated() && 
+             (request.auth.token.email == "hen27e@gmail.com" && request.auth.token.email_verified == true);
+    }
+    function isOwner(userId) { return isAuthenticated() && request.auth.uid == userId; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    
+    function isCoupleMember(coupleId) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.coupleId == coupleId;
+    }
+
+    // ===============================================================
+    // Public Collections
+    // ===============================================================
+    
+    match /site_content/{contentId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /site_updates/{updateId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /weekly_missions/{missionId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /weekly_recipes/{recipeId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /knowledge_hub/{itemId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /movies_catalog/{movieId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ===============================================================
+    // User & Couple Collections
+    // ===============================================================
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin() || (isAuthenticated() && isCoupleMember(resource.data.coupleId));
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && incoming().role != 'admin';
+      allow update: if isOwner(userId) || isAdmin();
+      
+      match /journal/{entryId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId);
+      }
+      
+      match /missions/{missionId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId);
+      }
+    }
+
+    match /fitness_profiles/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isOwner(userId);
+    }
+
+    match /couples/{coupleId} {
+      allow read: if isCoupleMember(coupleId) || isAdmin();
+      allow create: if isAuthenticated();
+      allow update: if isCoupleMember(coupleId) || isAdmin();
+
+      match /shared_journal/{entryId} {
+        allow read: if isCoupleMember(coupleId) || isAdmin();
+        allow write: if isCoupleMember(coupleId);
+      }
+    }
+
+    match /memories/{memoryId} {
+      allow read: if isAuthenticated() && isCoupleMember(resource.data.coupleId);
+      allow create: if isAuthenticated() && isCoupleMember(incoming().coupleId);
+      allow update, delete: if isAuthenticated() && isCoupleMember(resource.data.coupleId);
+    }
+
+    match /couple_missions/{missionId} {
+      allow read: if isAuthenticated() && isCoupleMember(resource.data.coupleId);
+      allow write: if isAuthenticated() && isCoupleMember(incoming().coupleId);
+    }
+
+    match /connection_pulse/{pulseId} {
+      allow read: if isAuthenticated() && isCoupleMember(resource.data.coupleId);
+      allow create: if isAuthenticated() && isCoupleMember(incoming().coupleId);
+    }
+
+    match /bucket_list/{itemId} {
+      allow read: if isAuthenticated() && isCoupleMember(resource.data.coupleId);
+      allow write: if isAuthenticated() && isCoupleMember(incoming().coupleId);
+    }
+
+    match /vision_board/{itemId} {
+      allow read: if isAuthenticated() && isCoupleMember(resource.data.coupleId);
+      allow write: if isAuthenticated() && isCoupleMember(incoming().coupleId);
+    }
+
+    match /savings_goals/{goalId} {
+      allow read: if isAuthenticated() && isCoupleMember(resource.data.coupleId);
+      allow write: if isAuthenticated() && isCoupleMember(incoming().coupleId);
+    }
+
+    match /orders/{orderId} {
+      allow read: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
+      allow create: if isAuthenticated() && incoming().userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow write: if isOwner(incoming().userId) || isAdmin();
+    }
+
+    match /place_interactions/{interactionId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    match /test/connection {
+      allow read: if true;
+    }
+  }
+}

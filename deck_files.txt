@@ -1,0 +1,3 @@
+./dist/assets/index-BwflCs7l.js
+./src/pages/CardDecks.tsx
+./src/pages/Home.tsx

@@ -1,5 +1,5 @@
 {
   "name": "Byond Intima",
-  "description": "מותג פרימיום לחוויות זוגיות מודרכות - יוקרה שקטה, עומק רגשי ובגרות.",
-  "requestFramePermissions": []
+  "description": "מותג פרימיום לחוויות זוגיות מודרכות עם מדריך AI אנושי מותאם אישית.",
+  "requestFramePermissions": ["geolocation", "camera"]
 }

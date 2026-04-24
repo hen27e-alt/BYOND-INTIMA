@@ -1,0 +1,16 @@
+./dist/assets/index-BwflCs7l.js
+./node_modules/better-sqlite3/deps/sqlite3/sqlite3.c
+./node_modules/@firebase/auth-compat/dist/firebase-auth.js.map
+./node_modules/minipass/dist/commonjs/index.d.ts
+./node_modules/minipass/dist/commonjs/index.d.ts.map
+./node_modules/minipass/dist/commonjs/index.js
+./node_modules/minipass/dist/commonjs/index.js.map
+./node_modules/minipass/dist/esm/index.d.ts
+./node_modules/minipass/dist/esm/index.d.ts.map
+./node_modules/minipass/dist/esm/index.js
+./node_modules/minipass/dist/esm/index.js.map
+./node_modules/protobufjs/google/protobuf/type.json
+./node_modules/protobufjs/google/protobuf/type.proto
+./node_modules/typescript/lib/lib.dom.d.ts
+./node_modules/typescript/lib/lib.webworker.d.ts
+./src/pages/Home.tsx

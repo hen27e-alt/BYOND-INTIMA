@@ -1,0 +1,806 @@
+{
+  "entities": {
+    "FitnessProfile": {
+      "title": "Fitness Profile",
+      "description": "Personal fitness goals, tracking, and health metrics for a user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "height": { "type": "number", "description": "User's height in cm." },
+        "targetWeight": { "type": "number" },
+        "currentWeight": { "type": "number" },
+        "dailyWaterGoal": { "type": "integer", "description": "Daily water intake goal in ml." },
+        "currentWaterIntake": { "type": "integer", "description": "Today's water intake in ml." },
+        "dailyStepGoal": { "type": "integer" },
+        "currentSteps": { "type": "integer" },
+        "caloriesBurned": { "type": "integer" },
+        "micronutrients": {
+          "type": "object",
+          "properties": {
+            "vitaminD": { "type": "number", "description": "mcg" },
+            "omega3": { "type": "number", "description": "mg" },
+            "iron": { "type": "number", "description": "mg" },
+            "calcium": { "type": "number", "description": "mg" }
+          }
+        },
+        "foodLibrary": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "calories": { "type": "integer" },
+              "giScore": { "type": "integer" },
+              "isFavorite": { "type": "boolean" }
+            }
+          }
+        },
+        "giTracking": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "mealName": { "type": "string" },
+              "giScore": { "type": "integer" },
+              "date": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "workoutSchedule": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] }
+        },
+        "personalRecords": {
+          "type": "object",
+          "properties": {
+            "maxRunDistance": { "type": "number" },
+            "maxPushups": { "type": "integer" },
+            "maxPlankTime": { "type": "integer", "description": "seconds" }
+          }
+        },
+        "painFatigueLogs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": { "type": "string", "format": "date-time" },
+              "painScore": { "type": "integer", "minimum": 0, "maximum": 10 },
+              "fatigueScore": { "type": "integer", "minimum": 0, "maximum": 10 }
+            }
+          }
+        },
+        "stravaConnected": { "type": "boolean" },
+        "sleepLogs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": { "type": "string", "format": "date" },
+              "hours": { "type": "number" },
+              "quality": { "type": "integer", "minimum": 1, "maximum": 5 }
+            }
+          }
+        },
+        "achievements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "dateEarned": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "streakCount": { "type": "integer" },
+        "lastLoginDate": { "type": "string", "format": "date" },
+        "coachAccessCode": { "type": "string" },
+        "mealPlan": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "day": { "type": "string" },
+              "meals": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": { "type": "string", "enum": ["breakfast", "lunch", "dinner", "snack"] },
+                    "description": { "type": "string" },
+                    "calories": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "workouts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string" },
+              "duration": { "type": "integer", "description": "Duration in minutes." },
+              "intensity": { "type": "string", "enum": ["low", "medium", "high"] },
+              "date": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "healthAppConnected": { "type": "boolean", "description": "Whether the user has connected Apple Health or Google Fit." },
+        "beforePhotoUrl": { "type": "string", "format": "uri", "description": "URL to the user's 'before' transformation photo." },
+        "afterPhotoUrl": { "type": "string", "format": "uri", "description": "URL to the user's 'after' transformation photo." },
+        "favoriteRecipes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of IDs of favorite recipes."
+        },
+        "lastSync": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId"]
+    },
+    "User": {
+      "title": "User Profile",
+      "description": "Stores user profile information, preferences, and overall journey progress.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Unique identifier for the user." },
+        "email": { "type": "string", "format": "email", "description": "User's email address." },
+        "displayName": { "type": "string", "description": "User's display name." },
+        "partnerId": { "type": "string", "description": "UID of the partner user." },
+        "coupleId": { "type": "string", "description": "Shared ID for the couple." },
+        "loveLanguage": { "type": "string", "description": "Result of the love language quiz." },
+        "coupleTitle": { "type": "string", "description": "Earned title based on progress." },
+        "preferences": {
+          "type": "object",
+          "description": "User's app preferences (e.g., theme, notifications).",
+          "properties": {
+            "theme": { "type": "string", "enum": ["light", "dark"] },
+            "language": { "type": "string", "enum": ["he", "en"] },
+            "onboardingCompleted": { "type": "boolean", "description": "Whether the user has completed the onboarding flow." },
+            "customAvatar": { "type": "string", "description": "URL to the user's custom uploaded avatar." }
+          }
+        },
+        "progress": {
+          "type": "object",
+          "description": "Overall journey progress metrics.",
+          "properties": {
+            "cookedCount": { "type": "integer", "description": "Number of recipes cooked." },
+            "watchedMoviesCount": { "type": "integer", "description": "Number of movies watched." },
+            "solvedRiddlesCount": { "type": "integer", "description": "Number of riddles solved." },
+            "totalPoints": { "type": "integer", "description": "Total points earned." },
+            "missionsCompleted": { "type": "integer", "description": "Number of weekly missions completed." }
+          }
+        },
+        "credits": { "type": "integer", "description": "User's store credits or balance." },
+        "medals": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of medals or achievements awarded to the user."
+        },
+        "points": { "type": "integer", "description": "Total points earned." },
+        "missionsCompleted": { 
+          "type": "array", 
+          "items": { "type": "string" },
+          "description": "List of completed mission IDs." 
+        },
+        "completedModuleTasks": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of completed guided module task IDs."
+        },
+        "completedSparks": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of completed daily spark IDs."
+        },
+        "fantasies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "text": { "type": "string" },
+              "isRevealed": { "type": "boolean" },
+              "createdAt": { "type": "string", "format": "date-time" }
+            }
+          },
+          "description": "List of user's intimate fantasies."
+        },
+        "intimacyPin": {
+          "type": "string",
+          "description": "PIN code to unlock the intimacy profile."
+        },
+        "missionDueDates": {
+          "type": "object",
+          "description": "Custom due dates set by the user for specific missions."
+        },
+        "status": { "type": "string", "enum": ["active", "disabled"], "description": "Account status." },
+        "role": { "type": "string", "enum": ["user", "admin", "partner"], "description": "User's role in the system." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the profile was created." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the profile was last updated." }
+      },
+      "required": ["uid", "email"]
+    },
+    "CoupleMemory": {
+      "title": "Couple Memory",
+      "description": "A shared memory for a couple (photo + insight).",
+      "type": "object",
+      "properties": {
+        "coupleId": { "type": "string" },
+        "imageUrl": { "type": "string", "format": "uri" },
+        "insight": { "type": "string" },
+        "type": { "type": "string", "enum": ["first_date", "anniversary", "general"] },
+        "date": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["coupleId", "imageUrl", "insight", "date", "type"]
+    },
+    "WeeklyMission": {
+      "title": "Weekly Mission",
+      "description": "A mission assigned to all users for the week.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "points": { "type": "integer" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "endDate": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "description", "points"]
+    },
+    "DatePlan": {
+      "title": "Date Plan",
+      "description": "A generated date plan for a couple.",
+      "type": "object",
+      "properties": {
+        "coupleId": { "type": "string" },
+        "title": { "type": "string" },
+        "activities": { "type": "array", "items": { "type": "string" } },
+        "movieSuggestion": { "type": "object" },
+        "questions": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "WeeklyCheckIn": {
+      "title": "Weekly Check-In",
+      "description": "A weekly questionnaire for couples to review their relationship.",
+      "type": "object",
+      "properties": {
+        "coupleId": { "type": "string" },
+        "userId": { "type": "string" },
+        "answers": { "type": "object" },
+        "weekNumber": { "type": "integer" },
+        "year": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["coupleId", "userId", "answers", "weekNumber", "year"]
+    },
+    "BucketListItem": {
+      "title": "Bucket List Item",
+      "description": "A shared goal or dream for the couple.",
+      "type": "object",
+      "properties": {
+        "coupleId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "completed"] },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "imageUrl": { "type": "string", "format": "uri" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["coupleId", "title", "status"]
+    },
+    "SecretMission": {
+      "title": "Secret Mission",
+      "description": "A surprise mission assigned to one partner.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "partnerId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["assigned", "completed"] },
+        "completedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "status"]
+    },
+    "ConnectionPulse": {
+      "title": "Connection Pulse",
+      "description": "Daily emotional and energy status check.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "coupleId": { "type": "string" },
+        "mood": { "type": "integer" },
+        "energy": { "type": "integer" },
+        "need": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "coupleId", "mood", "energy"]
+    },
+    "SavingsGoal": {
+      "title": "Savings Goal",
+      "description": "A shared financial goal for the couple.",
+      "type": "object",
+      "properties": {
+        "coupleId": { "type": "string" },
+        "title": { "type": "string" },
+        "targetAmount": { "type": "number" },
+        "currentAmount": { "type": "number" },
+        "deadline": { "type": "string", "format": "date-time" }
+      },
+      "required": ["coupleId", "title", "targetAmount", "currentAmount"]
+    },
+    "WeeklyRecipe": {
+      "title": "Weekly Recipe",
+      "description": "A curated recipe for the couple to cook together.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "ingredients": { "type": "array", "items": { "type": "string" } },
+        "instructions": { "type": "array", "items": { "type": "string" } },
+        "imageUrl": { "type": "string", "format": "uri" },
+        "weekNumber": { "type": "integer" },
+        "year": { "type": "integer" }
+      },
+      "required": ["title", "ingredients", "instructions"]
+    },
+    "TimeCapsule": {
+      "title": "Time Capsule",
+      "description": "A message to be opened in the future.",
+      "type": "object",
+      "properties": {
+        "coupleId": { "type": "string" },
+        "fromUserId": { "type": "string" },
+        "toUserId": { "type": "string" },
+        "content": { "type": "string" },
+        "unlockDate": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "isUnlocked": { "type": "boolean" }
+      },
+      "required": ["coupleId", "fromUserId", "content", "unlockDate"]
+    },
+    "KnowledgeItem": {
+      "title": "Knowledge Item",
+      "description": "Educational content for couples.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "type": { "type": "string", "enum": ["podcast", "article", "video"] },
+        "url": { "type": "string", "format": "uri" },
+        "description": { "type": "string" },
+        "category": { "type": "string" }
+      },
+      "required": ["title", "type", "url"]
+    },
+    "MissionProgress": {
+      "title": "Mission Progress",
+      "description": "Tracks completion of specific missions.",
+      "type": "object",
+      "properties": {
+        "missionId": { "type": "string", "description": "Unique identifier for the mission." },
+        "completed": { "type": "boolean", "description": "Whether the mission is completed." },
+        "pointsEarned": { "type": "integer", "description": "Points earned for this mission." },
+        "completedAt": { "type": "string", "format": "date-time", "description": "When the mission was completed." }
+      },
+      "required": ["missionId"]
+    },
+    "JournalEntry": {
+      "title": "Journal Entry",
+      "description": "A personal or shared journal entry.",
+      "type": "object",
+      "properties": {
+        "content": { "type": "string", "description": "The text content of the entry." },
+        "type": { "type": "string", "enum": ["thoughts", "memories", "business", "shared"], "description": "Category of the entry." },
+        "timestamp": { "type": "string", "format": "date-time", "description": "When the entry was created." },
+        "imageUrl": { "type": "string", "format": "uri", "description": "Optional image attached to the entry." },
+        "voiceUrl": { "type": "string", "format": "uri", "description": "Optional voice note attached to the entry." },
+        "isShared": { "type": "boolean", "description": "Whether the entry is shared with the partner." },
+        "aiSummary": { "type": "string", "description": "AI-generated summary or insight for this entry." }
+      },
+      "required": ["content", "timestamp"]
+    },
+    "DatingGoal": {
+      "title": "Dating Goal",
+      "description": "A shared dating goal for the couple.",
+      "type": "object",
+      "properties": {
+        "coupleId": { "type": "string" },
+        "title": { "type": "string" },
+        "targetDate": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["pending", "completed"] },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "frequency": { "type": "string", "enum": ["once", "weekly", "monthly"] }
+      },
+      "required": ["coupleId", "title", "status"]
+    },
+    "TreasureHunt": {
+      "title": "Treasure Hunt",
+      "description": "A riddle-based game for couples.",
+      "type": "object",
+      "properties": {
+        "coupleId": { "type": "string" },
+        "riddle": { "type": "string" },
+        "answer": { "type": "string" },
+        "hint": { "type": "string" },
+        "points": { "type": "integer" },
+        "status": { "type": "string", "enum": ["active", "solved"] },
+        "solvedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["coupleId", "riddle", "answer", "points", "status"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Represents a purchase or order made by a user.",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string", "description": "Unique identifier for the order." },
+        "userId": { "type": "string", "description": "The UID of the user who placed the order." },
+        "customerDetails": {
+          "type": "object",
+          "properties": {
+            "firstName": { "type": "string" },
+            "lastName": { "type": "string" },
+            "email": { "type": "string" },
+            "phone": { "type": "string" },
+            "address": { "type": "string" },
+            "city": { "type": "string" },
+            "zip": { "type": "string" }
+          }
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "price": { "type": "number" },
+              "quantity": { "type": "integer" }
+            }
+          }
+        },
+        "totalAmount": { "type": "number", "description": "Total price of the order." },
+        "status": { "type": "string", "enum": ["pending", "completed", "cancelled", "refunded"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "totalAmount", "status"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "A product available in the boutique.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "image": { "type": "string", "format": "uri" },
+        "hoverImage": { "type": "string", "format": "uri" },
+        "price": { "type": "number" },
+        "material": { "type": "string" },
+        "dimensions": { "type": "string" },
+        "care": { "type": "string" },
+        "reviews": {
+          "type": "object",
+          "properties": {
+            "rating": { "type": "number" },
+            "count": { "type": "integer" }
+          }
+        },
+        "category": { "type": "string" },
+        "isPremium": { "type": "boolean" },
+        "personalizable": { "type": "boolean" }
+      },
+      "required": ["id", "name", "price", "category"]
+    },
+    "ContentFeedback": {
+      "title": "Content Feedback",
+      "description": "Stores user feedback (thumbs up/down) on specific content sections.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "UID of the user providing feedback." },
+        "pageId": { "type": "string", "description": "Identifier for the page (e.g., intimacy-guide)." },
+        "sectionId": { "type": "string", "description": "Identifier for the specific section." },
+        "sectionTitle": { "type": "string", "description": "Title of the section at the time of feedback." },
+        "rating": { "type": "string", "enum": ["up", "down"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "pageId", "sectionId", "rating"]
+    },
+    "SiteContent": {
+      "title": "Site Content",
+      "description": "Stores editable text strings for the website.",
+      "type": "object",
+      "properties": {
+        "contentId": { "type": "string", "description": "Unique key for the content piece (e.g., 'home_hero_title')." },
+        "text": { "type": "string", "description": "The actual text content." },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string", "description": "UID of the admin who last updated this." }
+      },
+      "required": ["contentId", "text"]
+    },
+    "CoupleMission": {
+      "title": "Couple Mission",
+      "description": "A mission assigned to a couple.",
+      "type": "object",
+      "properties": {
+        "coupleId": { "type": "string", "description": "The ID of the couple this mission belongs to." },
+        "title": { "type": "string", "description": "Title of the mission." },
+        "description": { "type": "string", "description": "Description of the mission." },
+        "points": { "type": "integer", "description": "Points awarded for completing the mission." },
+        "category": { "type": "string", "description": "Category of the mission." },
+        "completionStatus": { "type": "string", "enum": ["pending", "completed"], "description": "Status of the mission." },
+        "deadline": { "type": "string", "format": "date-time", "description": "Deadline for the mission." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the mission was created." },
+        "completedAt": { "type": "string", "format": "date-time", "description": "When the mission was completed." }
+      },
+      "required": ["coupleId", "title", "description", "points", "category", "completionStatus"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "A notification for a user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The UID of the user." },
+        "title": { "type": "string", "description": "Title of the notification." },
+        "body": { "type": "string", "description": "Body of the notification." },
+        "type": { "type": "string", "enum": ["mission", "love", "reminder", "system"], "description": "Type of notification." },
+        "read": { "type": "boolean", "description": "Whether the notification has been read." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the notification was created." }
+      },
+      "required": ["userId", "title", "body", "type", "read"]
+    },
+    "vision_board": {
+      "title": "VisionBoardItem",
+      "description": "Items on the couple's vision board.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "coupleId": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string", "enum": ["travel", "home", "family", "career", "other"] },
+        "imageUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["coupleId", "title", "category", "imageUrl"]
+    },
+    "timeline_events": {
+      "title": "TimelineEvent",
+      "description": "Events in the couple's relationship timeline.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "coupleId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "imageUrl": { "type": "string" },
+        "type": { "type": "string", "enum": ["milestone", "memory", "achievement"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["coupleId", "title", "date", "type"]
+    },
+    "CulinaryMoment": {
+      "title": "Culinary Moment",
+      "description": "A photo of a recipe cooked by a couple.",
+      "type": "object",
+      "properties": {
+        "imageUrl": { "type": "string" },
+        "recipeTitle": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["imageUrl", "recipeTitle"]
+    },
+    "SiteUpdate": {
+      "title": "Site Update",
+      "description": "A log of updates and future plans for the website.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "type": { "type": "string", "enum": ["feature", "improvement", "fix", "roadmap"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "description", "date", "type"]
+    },
+    "GlobalConfig": {
+      "title": "Global Config",
+      "description": "Stores global site settings like site name and default avatar.",
+      "type": "object",
+      "properties": {
+        "siteName": { "type": "string" },
+        "conciergeName": { "type": "string" },
+        "globalAvatar": { "type": "string" },
+        "greetingVideoUrl": { "type": "string" }
+      }
+    },
+    "UserPlaceInteraction": {
+      "title": "User Place Interaction",
+      "description": "Stores user ratings, photos, and reviews for specific places found via recommendations.",
+      "type": "object",
+      "properties": {
+        "placeId": { "type": "string", "description": "Google Maps Place ID or unique identifier." },
+        "userId": { "type": "string" },
+        "coupleId": { "type": "string" },
+        "rating": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "review": { "type": "string" },
+        "photos": { "type": "array", "items": { "type": "string" } },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "placeName": { "type": "string" },
+        "category": { "type": "string" }
+      },
+      "required": ["placeId", "userId", "coupleId", "rating"]
+    }
+  },
+  "firestore": {
+    "/fitness_profiles/{userId}": {
+      "schema": "FitnessProfile",
+      "description": "Personal fitness and health tracking for a user."
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile document."
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Global orders collection."
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Boutique products collection."
+    },
+    "/site_content/{contentId}": {
+      "schema": "SiteContent",
+      "description": "Global editable site content."
+    },
+    "/site_content/global_config": {
+      "schema": "GlobalConfig",
+      "description": "Global site configuration settings."
+    },
+    "/content_feedback/{feedbackId}": {
+      "schema": "MissionProgress",
+      "description": "User's progress on a specific mission."
+    },
+    "/users/{userId}/journal/{entryId}": {
+      "schema": "JournalEntry",
+      "description": "User's journal entries."
+    },
+    "/memories/{memoryId}": {
+      "schema": "CoupleMemory",
+      "description": "Shared memories collection."
+    },
+    "/weekly_missions/{missionId}": {
+      "schema": "WeeklyMission",
+      "description": "Global weekly missions."
+    },
+    "/date_plans/{planId}": {
+      "schema": "DatePlan",
+      "description": "Generated date plans."
+    },
+    "/weekly_checkins/{checkinId}": {
+      "schema": "WeeklyCheckIn",
+      "description": "Weekly relationship reviews."
+    },
+    "/bucket_list/{itemId}": {
+      "schema": "BucketListItem",
+      "description": "Shared couple goals."
+    },
+    "/secret_missions/{missionId}": {
+      "schema": "SecretMission",
+      "description": "Surprise missions for partners."
+    },
+    "/connection_pulse/{pulseId}": {
+      "schema": "ConnectionPulse",
+      "description": "Emotional status tracking."
+    },
+    "/savings_goals/{goalId}": {
+      "schema": "SavingsGoal",
+      "description": "Shared financial targets."
+    },
+    "/weekly_recipes/{recipeId}": {
+      "schema": "WeeklyRecipe",
+      "description": "Curated recipes for couples."
+    },
+    "/time_capsules/{capsuleId}": {
+      "schema": "TimeCapsule",
+      "description": "Future messages."
+    },
+    "/knowledge_hub/{itemId}": {
+      "schema": "KnowledgeItem",
+      "description": "Educational resources."
+    },
+    "/couple_missions/{missionId}": {
+      "schema": "CoupleMission",
+      "description": "Missions assigned to couples."
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "User notifications."
+    },
+    "/vision_board/{itemId}": {
+      "schema": { "$ref": "#/entities/vision_board" },
+      "description": "Stores vision board items for couples."
+    },
+    "/timeline_events/{eventId}": {
+      "schema": { "$ref": "#/entities/timeline_events" },
+      "description": "Stores timeline events for couples."
+    },
+    "/culinary_moments/{momentId}": {
+      "schema": "CulinaryMoment",
+      "description": "Photos of recipes cooked by couples."
+    },
+    "/site_updates/{updateId}": {
+      "schema": "SiteUpdate",
+      "description": "Log of site updates and roadmap."
+    },
+    "/place_interactions/{interactionId}": {
+      "schema": "UserPlaceInteraction",
+      "description": "User interactions with recommended date spots."
+    },
+    "/dating_goals/{goalId}": {
+      "schema": "DatingGoal",
+      "description": "Shared dating goals for couples."
+    },
+    "/treasure_hunts/{huntId}": {
+      "schema": "TreasureHunt",
+      "description": "Riddle-based treasure hunts."
+    },
+    "/couples/{coupleId}/shared_journal/{entryId}": {
+      "schema": "JournalEntry",
+      "description": "Shared journal entries for couples."
+    },
+    "/relationship_map/{locationId}": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "coupleId": { "type": "string" },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "type": { "type": "string", "enum": ["first_date", "kiss", "trip", "favorite", "future"] },
+          "date": { "type": "string" },
+          "lat": { "type": "number" },
+          "lng": { "type": "number" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["coupleId", "title", "type"]
+      },
+      "description": "Stores locations for the relationship map."
+    },
+    "/trivia_games/{gameId}": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "coupleId": { "type": "string" },
+          "status": { "type": "string", "enum": ["waiting", "playing", "finished"] },
+          "currentQuestionIndex": { "type": "integer" },
+          "questions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "question": { "type": "string" },
+                "options": { "type": "array", "items": { "type": "string" } },
+                "correctAnswer": { "type": "integer" },
+                "user1Answer": { "type": "integer" },
+                "user2Answer": { "type": "integer" }
+              }
+            }
+          },
+          "user1Id": { "type": "string" },
+          "user2Id": { "type": "string" },
+          "user1Score": { "type": "integer" },
+          "user2Score": { "type": "integer" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["coupleId", "status", "user1Id"]
+      },
+      "description": "Stores trivia game sessions."
+    }
+  }
+}

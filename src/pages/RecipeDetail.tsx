@@ -2,10 +2,13 @@ import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Utensils, Clock, ChevronRight, Heart, ArrowLeft, Award, CheckCircle } from 'lucide-react';
+import { useAlert } from '../components/AlertModal';
+import { EditableText } from '../components/EditableText';
 
 export const RecipeDetail = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { showAlert } = useAlert();
   const recipe = location.state?.recipe;
 
   // If no recipe is found in state, we could fetch it by ID if we had a backend.
@@ -15,12 +18,14 @@ export const RecipeDetail = () => {
       <div className="pt-32 pb-32 bg-brand-cream min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-serif mb-4">המתכון לא נמצא</h2>
-          <button 
+          <motion.button 
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={() => navigate('/dashboard')}
             className="text-brand-gold uppercase tracking-widest text-sm flex items-center gap-2 mx-auto"
           >
             <ArrowLeft size={16} /> חזרה לאזור האישי
-          </button>
+          </motion.button>
         </div>
       </div>
     );
@@ -33,19 +38,21 @@ export const RecipeDetail = () => {
     const currentCount = parseInt(localStorage.getItem('cookedCount') || '3');
     localStorage.setItem('cookedCount', (currentCount + 1).toString());
     
-    alert('כל הכבוד! צברתם 50 נקודות זהב והתקדמתם לעבר תעודת השף שלכם.');
+    showAlert('כל הכבוד! צברתם 50 נקודות זהב והתקדמתם לעבר תעודת השף שלכם.');
     navigate('/dashboard');
   };
 
   return (
     <div className="pt-32 pb-32 bg-brand-cream min-h-screen" role="main">
       <div className="max-w-4xl mx-auto px-6">
-        <button 
+        <motion.button 
+          whileHover={{ scale: 1.05, x: 5 }}
+          whileTap={{ scale: 0.95 }}
           onClick={() => navigate(-1)}
           className="mb-8 text-brand-black/40 hover:text-brand-black transition-colors flex items-center gap-2 text-[10px] uppercase tracking-widest"
         >
           <ArrowLeft size={14} /> חזרה
-        </button>
+        </motion.button>
 
         <motion.div 
           initial={{ opacity: 0, y: 20 }} 
@@ -62,7 +69,12 @@ export const RecipeDetail = () => {
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-8">
               <div className="text-white">
-                <h1 className="text-4xl md:text-5xl font-serif mb-2">{recipe.title || recipe.name}</h1>
+                <EditableText 
+                  contentId={`recipe_title_${recipe.id || recipe.title}`}
+                  defaultText={recipe.title || recipe.name}
+                  as="h1"
+                  className="text-4xl md:text-5xl font-serif mb-2"
+                />
                 <div className="flex gap-6 text-[10px] uppercase tracking-widest text-white/80">
                   <span className="flex items-center gap-2"><Clock size={12} /> {recipe.time}</span>
                   <span className="flex items-center gap-2"><Award size={12} /> {recipe.level || recipe.difficulty}</span>
@@ -120,12 +132,14 @@ export const RecipeDetail = () => {
               </div>
 
               <div className="flex flex-col items-center gap-6">
-                <button 
+                <motion.button 
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={handleCooked}
                   className="w-full md:w-auto px-24 py-5 bg-brand-black text-white uppercase tracking-[0.3em] text-xs hover:bg-brand-gold transition-all shadow-lg flex items-center justify-center gap-3"
                 >
                   <CheckCircle size={16} /> בישלנו!
-                </button>
+                </motion.button>
                 <p className="text-[10px] uppercase tracking-widest text-brand-black/30">
                   לחיצה תעניק לכם +50💎 ותתקדם לעבר תעודת השף
                 </p>
