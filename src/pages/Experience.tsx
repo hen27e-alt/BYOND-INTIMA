@@ -247,7 +247,7 @@ export const Experience = () => {
         setPackages([
           {
             id: 'exp_spark',
-            name: 'מארז הניצוץ',
+            name: 'מארז דמדומים',
             description: 'הציתו מחדש את הסקרנות וההתרגשות הראשונית. מארז קליל ומפתיע הכולל קלפי משחק, נר אווירה ופינוקים קטנים.',
             image: 'https://images.unsplash.com/photo-1513201099705-a9746e1e201f?auto=format&fit=crop&q=80&w=800',
             price: 290,
@@ -264,7 +264,7 @@ export const Experience = () => {
           },
           {
             id: 'exp_velvet',
-            name: 'מארז הקטיפה',
+            name: 'מארז חצות',
             description: 'התמסרו למגע רך ועומק רגשי חסר פשרות. מארז יוקרתי הכולל חלוקי סאטן, שמן עיסוי וערכת אינטימיות.',
             image: 'https://images.unsplash.com/photo-1540541338287-41700207dee6?auto=format&fit=crop&q=80&w=800',
             price: 580,
@@ -281,7 +281,7 @@ export const Experience = () => {
           },
           {
             id: 'exp_ecstasy',
-            name: 'מארז האקסטזה',
+            name: 'מארז עד אור הבוקר',
             description: 'שחררו כל רסן והגיעו לשיאים חדשים. החוויה האולטימטיבית למי שמעז לחקור את קצוות התשוקה עם מוצרים נועזים ומרגשים.',
             image: 'https://images.unsplash.com/photo-1516594915697-87eb3b1c14ea?auto=format&fit=crop&q=80&w=800',
             price: 850,

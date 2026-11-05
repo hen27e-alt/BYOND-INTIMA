@@ -758,9 +758,9 @@ export const Admin = () => {
                         const experiencePackages = [
                           {
                             id: 'spark',
-                            name: 'THE SPARK (הניצוץ)',
+                            name: 'DUSK (דמדומים)',
                             tier: 'המארז הרגיל (Small)',
-                            description: 'הציתו מחדש את הסקרנות וההתרגשות הראשונית. מארז הניצוץ הוא השער שלכם לעולם של חוויות זוגיות חדשות, מושלם לזוגות שרוצים להתחיל את המסע שלהם.',
+                            description: 'הציתו מחדש את הסקרנות וההתרגשות הראשונית. מארז דמדומים הוא השער שלכם לעולם של חוויות זוגיות חדשות, מושלם לזוגות שרוצים להתחיל את המסע שלהם.',
                             image: 'https://ais-pre-qty22ua7w7j2wcnrsvjwol-78550764035.europe-west3.run.app/assets/spark_package.jpg',
                             price: 350,
                             category: 'experience',
@@ -776,9 +776,9 @@ export const Admin = () => {
                           },
                           {
                             id: 'velvet',
-                            name: 'THE VELVET (הקטיפה)',
+                            name: 'MIDNIGHT (חצות)',
                             tier: 'המארז הבינוני (Medium)',
-                            description: 'התמסרו למגע רך ועומק רגשי חסר פשרות. מארז הקטיפה מעמיק את החיבור ביניכם עם חוויות חושניות ומרגשות יותר.',
+                            description: 'התמסרו למגע רך ועומק רגשי חסר פשרות. מארז חצות מעמיק את החיבור ביניכם עם חוויות חושניות ומרגשות יותר.',
                             image: 'https://ais-pre-qty22ua7w7j2wcnrsvjwol-78550764035.europe-west3.run.app/assets/velvet_package.jpg',
                             price: 450,
                             category: 'experience',
@@ -790,11 +790,11 @@ export const Admin = () => {
                             hasCinemaAccess: true,
                             hasAiGuide: true,
                             atmosphereLevel: 'מורחב',
-                            features: ["כל מה שיש במארז הניצוץ", "קלפי משימות מורחבות", "אתגר בישול מתקדם", "מעטפה סודית", "משימה אינטימית", "2 כרטיסי גירוד", "מערכת ניקוד ופתיחת רמות"]
+                            features: ["כל מה שיש במארז דמדומים", "קלפי משימות מורחבות", "אתגר בישול מתקדם", "מעטפה סודית", "משימה אינטימית", "2 כרטיסי גירוד", "מערכת ניקוד ופתיחת רמות"]
                           },
                           {
                             id: 'ecstasy',
-                            name: 'THE ECSTASY (האקסטזה)',
+                            name: 'UNTIL DAWN (עד אור הבוקר)',
                             tier: 'המארז הגדול (Large)',
                             description: 'שחררו כל רסן והגיעו לשיאים חדשים של ריגוש ושפע. המארז האולטימטיבי לזוגות שלא מפחדים לצלול לעומק ולחוות את הכל.',
                             image: 'https://ais-pre-qty22ua7w7j2wcnrsvjwol-78550764035.europe-west3.run.app/assets/ecstasy_package.jpg',
@@ -808,7 +808,7 @@ export const Admin = () => {
                             hasCinemaAccess: true,
                             hasAiGuide: true,
                             atmosphereLevel: 'פרימיום',
-                            features: ["כל מה שיש במארז הקטיפה", "למעלה מ-300 קלפי חוויה ייחודיים", "משימת מטבח יוקרתית", "חבילת קלפי משימות מורחבים", "משימה אינטימית מורחבת", "מפתח לפתיחת עונה 2", "5 כרטיסי גירוד"]
+                            features: ["כל מה שיש במארז חצות", "למעלה מ-300 קלפי חוויה ייחודיים", "משימת מטבח יוקרתית", "חבילת קלפי משימות מורחבים", "משימה אינטימית מורחבת", "מפתח לפתיחת עונה 2", "5 כרטיסי גירוד"]
                           }
                         ];
                         for (const pkg of experiencePackages) {

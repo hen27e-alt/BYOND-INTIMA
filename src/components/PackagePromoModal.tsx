@@ -58,21 +58,21 @@ export const PackagePromoModal = () => {
     { 
       id: 'spark', 
       name: language === 'he' ? 'THE SPARK' : 'THE SPARK',
-      subtitle: language === 'he' ? 'הניצוץ' : 'The Spark',
+      subtitle: language === 'he' ? 'דמדומים' : 'Dusk',
       img: SITE_IMAGES.spark_package,
       price: '₪249'
     },
     { 
       id: 'velvet', 
       name: language === 'he' ? 'THE VELVET' : 'THE VELVET',
-      subtitle: language === 'he' ? 'הקטיפה' : 'The Velvet',
+      subtitle: language === 'he' ? 'חצות' : 'Midnight',
       img: SITE_IMAGES.velvet_package,
       price: '₪399'
     },
     { 
       id: 'ecstasy', 
       name: language === 'he' ? 'THE ECSTASY' : 'THE ECSTASY',
-      subtitle: language === 'he' ? 'האקסטזה' : 'The Ecstasy',
+      subtitle: language === 'he' ? 'עד אור הבוקר' : 'Until Dawn',
       img: SITE_IMAGES.ecstasy_package,
       price: '₪549'
     }

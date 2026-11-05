@@ -17,7 +17,7 @@ interface Module {
 const modules: Module[] = [
   {
     id: 'spark',
-    title: 'THE SPARK (הניצוץ)',
+    title: 'DUSK (דמדומים)',
     description: 'הציתו מחדש את הסקרנות וההתרגשות הראשונית.',
     icon: Sparkles,
     color: 'text-amber-500',
@@ -29,7 +29,7 @@ const modules: Module[] = [
   },
   {
     id: 'velvet',
-    title: 'THE VELVET (הקטיפה)',
+    title: 'MIDNIGHT (חצות)',
     description: 'העמיקו את האינטימיות והחיבור הרגשי.',
     icon: Heart,
     color: 'text-rose-500',
@@ -41,7 +41,7 @@ const modules: Module[] = [
   },
   {
     id: 'ecstasy',
-    title: 'THE ECSTASY (האקסטזה)',
+    title: 'UNTIL DAWN (עד אור הבוקר)',
     description: 'חוויה יוקרתית ובלתי נשכחת לחיבור עמוק במיוחד.',
     icon: Star,
     color: 'text-purple-500',

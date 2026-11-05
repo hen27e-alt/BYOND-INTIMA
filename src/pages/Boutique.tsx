@@ -1,458 +1,353 @@
-import React, { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { ShoppingBag, ShoppingCart, Star, Sparkles, Info, Ruler, Droplets, ChevronDown, ChevronUp, Filter, Tag, Gift, PenTool, X, Trash2, Plus, Minus, ArrowRight, Loader2, Heart } from 'lucide-react';
-import { EditableText } from '../components/EditableText';
+import React, { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
+import { ShoppingBag, X, Trash2, Plus, Minus, Heart, ChevronDown } from 'lucide-react';
 import { EditableImage } from '../components/EditableImage';
 import { useCart } from '../contexts/CartContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useUI } from '../contexts/UIContext';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { useAlert } from '../components/AlertModal';
+import { Checkout } from '../components/Checkout';
+import { Ticket } from '../components/season/Ticket';
 import { cn } from '../lib/utils';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, onSnapshot, query } from 'firebase/firestore';
-import { Checkout } from '../components/Checkout';
-import { SITE_IMAGES } from '../constants/assets';
+import { boutiqueProducts } from '../data/boutique';
+import { BOX_IDS, SUBSCRIPTION } from '../data/season';
+
+type Product = (typeof boutiqueProducts)[number] & Record<string, any>;
 
 const CATEGORIES = [
-  { id: 'all', name: { he: 'הכל', en: 'All' } },
-  { id: 'experience', name: { he: 'מארזי חוויה', en: 'Experience Kits' } },
-  { id: 'premium', name: { he: 'בלעדי ל-Premium', en: 'Premium Exclusive' } },
-  { id: 'lifestyle', name: { he: 'לייף סטייל', en: 'Lifestyle' } },
-  { id: 'bedroom', name: { he: 'חדר שינה', en: 'Bedroom' } },
-  { id: 'atmosphere', name: { he: 'אווירה', en: 'Atmosphere' } },
-  { id: 'personalization', name: { he: 'פרסונליזציה', en: 'Personalization' } },
-  { id: 'smart', name: { he: 'מוצרים חכמים', en: 'Smart' } },
-];
+  { id: 'all', he: 'הכל', en: 'All' },
+  { id: 'experience', he: 'מארזים', en: 'Boxes' },
+  { id: 'gifts', he: 'מתנות', en: 'Gifts' },
+  { id: 'atmosphere', he: 'אווירה', en: 'Atmosphere' },
+  { id: 'lifestyle', he: 'אירוח ולייף סטייל', en: 'Hosting & lifestyle' },
+  { id: 'bedroom', he: 'חדר שינה', en: 'Bedroom' },
+  { id: 'personalization', he: 'בהתאמה אישית', en: 'Personalised' },
+  { id: 'smart', he: 'מוצרים חכמים', en: 'Smart' },
+  { id: 'premium', he: 'למנויים בלבד', en: 'Members only' },
+] as const;
+
+/** Firestore products win (the admin can edit them), the code catalogue fills gaps, and the three boxes keep their approved names. */
+const mergeCatalogue = (remote: Product[]): Product[] => {
+  const byId = new Map<string, Product>(boutiqueProducts.map((p) => [p.id, p as Product]));
+  for (const r of remote) {
+    const local = byId.get(r.id);
+    const merged = { ...(local ?? {}), ...r } as Product;
+    // Old seeded stock photos in Firestore point at removed Unsplash images;
+    // keep the verified local photo unless the admin uploaded their own.
+    if (local?.image && (!r.image || r.image.includes('images.unsplash.com'))) merged.image = local.image;
+    byId.set(r.id, merged);
+  }
+  for (const id of BOX_IDS) {
+    const local = boutiqueProducts.find((p) => p.id === id);
+    const merged = byId.get(id);
+    if (local && merged) byId.set(id, { ...merged, name: local.name, features: local.features } as Product);
+  }
+  return [...byId.values()];
+};
+
+const memberPrice = (price: number) =>
+  SUBSCRIPTION.memberDiscountPercent !== null ? Math.round(price * (1 - SUBSCRIPTION.memberDiscountPercent / 100)) : null;
 
 export const Boutique = () => {
-  const { cart, addToCart, updateQuantity, removeFromCart, clearCart, promoCode, applyPromoCode, discountAmount } = useCart();
+  const { cart, addToCart, updateQuantity, removeFromCart, promoCode, applyPromoCode, discountAmount } = useCart();
   const { language } = useLanguage();
   const { isPurchaseMode } = useUI();
   const { showAlert } = useAlert();
-  const { updateProfile, profile } = useFirebase();
-  const favoriteProducts = profile?.favoriteProducts || [];
-  const [products, setProducts] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
-  const [activeCategory, setActiveCategory] = useState('all');
+  const { updateProfile, profile, user } = useFirebase();
+  const reduce = useReducedMotion();
+  const he = language === 'he';
+  const tx = (h: string, e: string) => (he ? h : e);
+
+  const [products, setProducts] = useState<Product[]>(() => mergeCatalogue([]));
+  const [activeCategory, setActiveCategory] = useState<(typeof CATEGORIES)[number]['id']>('all');
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [personalization, setPersonalization] = useState<Record<string, { name: string; dedication: string }>>({});
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [promoInput, setPromoInput] = useState('');
-  const [hoveredProductId, setHoveredProductId] = useState<string | null>(null);
+
+  const favoriteProducts: string[] = profile?.favoriteProducts || [];
 
   React.useEffect(() => {
-    const q = query(collection(db, 'products'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const productList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setProducts(productList);
-      setIsLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'products');
-      setIsLoading(false);
-    });
+    const unsubscribe = onSnapshot(
+      query(collection(db, 'products')),
+      (snapshot) => setProducts(mergeCatalogue(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Product))),
+      (error) => handleFirestoreError(error, OperationType.GET, 'products')
+    );
     return () => unsubscribe();
   }, []);
 
-  const cartItems = Object.entries(cart).map(([id, data]) => ({ id, ...data }));
+  React.useEffect(() => {
+    if (!isCartOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setIsCartOpen(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isCartOpen]);
+
+  const cartItems = Object.entries(cart).map(([id, data]) => ({ id, ...data, product: products.find((p) => p.id === id) }));
   const totalItems = cartItems.reduce((acc, item) => acc + item.quantity, 0);
-  const subtotal = cartItems.reduce((acc, item) => {
-    const product = products.find(p => p.id === item.id);
-    return acc + (product?.price || 0) * item.quantity;
-  }, 0);
+  const subtotal = cartItems.reduce((acc, item) => acc + (item.product?.price || 0) * item.quantity, 0);
   const totalPrice = subtotal - discountAmount;
 
-  const handleApplyPromo = () => {
-    showAlert(
-      language === 'he' ? 'קוד קופון זה אינו תקף כרגע.' : 'This promo code is not valid at the moment.',
-      language === 'he' ? 'קוד לא תקין' : 'Invalid Code'
-    );
-  };
+  const filtered = useMemo(() => {
+    if (activeCategory === 'all') return products;
+    if (activeCategory === 'premium') return products.filter((p) => p.isPremium);
+    if (activeCategory === 'gifts') return products.filter((p) => p.personalizable || p.category === 'experience');
+    return products.filter((p) => p.category === activeCategory);
+  }, [activeCategory, products]);
 
-  const toggleFavoriteProduct = async (productId: string) => {
+  const counts = useMemo(() => {
+    const c: Record<string, number> = {};
+    for (const cat of CATEGORIES) {
+      c[cat.id] =
+        cat.id === 'all'
+          ? products.length
+          : cat.id === 'premium'
+            ? products.filter((p) => p.isPremium).length
+            : cat.id === 'gifts'
+              ? products.filter((p) => p.personalizable || p.category === 'experience').length
+              : products.filter((p) => p.category === cat.id).length;
+    }
+    return c;
+  }, [products]);
+
+  const toggleFavorite = async (productId: string) => {
     if (!profile) return;
-    const isFavorite = favoriteProducts.includes(productId);
-    const newFavorites = isFavorite
-      ? favoriteProducts.filter((id: string) => id !== productId)
-      : [...favoriteProducts, productId];
-    
+    const isFav = favoriteProducts.includes(productId);
     try {
-      await updateProfile({ favoriteProducts: newFavorites });
-      showAlert(
-        isFavorite 
-          ? (language === 'he' ? 'המוצר הוסר מהמועדפים' : 'Product removed from favorites')
-          : (language === 'he' ? 'המוצר נוסף למובחרים שלך' : 'Product added to your favorites'),
-        language === 'he' ? 'מועדפים' : 'Favorites'
-      );
+      await updateProfile({ favoriteProducts: isFav ? favoriteProducts.filter((id) => id !== productId) : [...favoriteProducts, productId] });
     } catch (error) {
-      console.error("Error updating favorites:", error);
+      console.error('Error updating favorites:', error);
+      showAlert(tx('לא הצלחנו לשמור את המועדפים. נסו שוב.', 'Could not save your favourites. Please try again.'));
     }
   };
 
-  const filteredProducts = useMemo(() => {
-    console.log("Boutique - Profile:", profile);
-    console.log("Boutique - Active Category:", activeCategory);
-    console.log("Boutique - Total Products in Data:", products.length);
-    
-    // If not in purchase mode, hide premium products unless they are in the 'all' view
-    // Actually, let's show them but with a lock if not in purchase mode
-    if (activeCategory === 'premium') {
-      const filtered = products.filter(p => p.isPremium);
-      console.log("Boutique - Filtered (premium):", filtered.length);
-      return filtered;
-    }
-    
-    if (activeCategory === 'all') {
-      console.log("Boutique - Returning all products:", products.length);
-      return products;
-    }
-    
-    const filtered = products.filter(p => p.category === activeCategory);
-    console.log(`Boutique - Filtered (${activeCategory}):`, filtered.length);
-    return filtered;
-  }, [activeCategory, profile, products]);
+  const setField = (id: string, field: 'name' | 'dedication', value: string) =>
+    setPersonalization((prev) => ({ ...prev, [id]: { name: '', dedication: '', ...prev[id], [field]: value } }));
 
-  const toggleDetails = (productId: string) => {
-    setExpandedProduct(expandedProduct === productId ? null : productId);
-  };
-
-  const handlePersonalizationChange = (productId: string, field: 'name' | 'dedication', value: string) => {
-    setPersonalization(prev => ({
-      ...prev,
-      [productId]: {
-        ...prev[productId],
-        [field]: value
-      }
-    }));
+  const add = (p: Product) => {
+    addToCart(p.id, personalization[p.id]);
+    setIsCartOpen(true);
   };
 
   return (
-    <div className="min-h-screen bg-brand-black text-white pt-32 pb-20">
-      <div className="max-w-7xl mx-auto px-6">
-        {/* Header */}
-        <div className="text-center mb-20">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center justify-center gap-2 mb-6"
-          >
-            <Sparkles className="text-brand-gold" size={24} />
-            <span className="text-brand-gold tracking-[0.3em] uppercase text-sm font-medium">
-              Premium Collection
-            </span>
-            <Sparkles className="text-brand-gold" size={24} />
-          </motion.div>
-          
-          <EditableText
-            contentId="boutique_title"
-            defaultText="BYOND BOUTIQUE"
-            as="h1"
-            className="text-5xl md:text-7xl font-serif mb-6 tracking-wider"
-          />
-          
-          <EditableText
-            contentId="boutique_subtitle"
-            defaultText="מוצרים נלווים באיכות פרימיום, המעוצבים בקפידה כדי להשלים את החוויה הזוגית שלכם."
-            as="p"
-            className="text-xl text-white/60 max-w-2xl mx-auto font-light"
-            multiline
-          />
-
-          {isPurchaseMode && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="mt-8 inline-flex items-center gap-3 px-6 py-3 bg-brand-gold/10 border border-brand-gold rounded-full"
-            >
-              <div className="w-2 h-2 bg-brand-gold rounded-full animate-pulse" />
-              <span className="text-brand-gold text-sm font-bold uppercase tracking-widest">
-                {language === 'he' ? 'חבר פרימיום פעיל' : 'Premium Member Active'}
-              </span>
-            </motion.div>
-          )}
-        </div>
-
-        {/* Category Filters */}
-        <div className="flex flex-wrap items-center justify-center gap-4 mb-12">
-          <div className="flex items-center gap-2 text-white/40 mr-4">
-            <Filter size={18} />
-            <span className="text-sm uppercase tracking-widest">{language === 'he' ? 'סינון:' : 'Filter:'}</span>
+    <div className="min-h-screen bg-paper pt-16 text-ink md:pt-20">
+      {/* Masthead of the boutique: its own section of the site */}
+      <header className="border-b-[3px] border-ink">
+        <div className="mx-auto flex max-w-[1440px] flex-col gap-6 px-4 py-10 md:px-8 lg:flex-row lg:items-end lg:justify-between lg:px-14 lg:py-14">
+          <div>
+            <h1 className="font-display text-[clamp(5rem,16vw,11rem)] font-bold leading-[0.8]">{tx('הבוטיק', 'The boutique')}</h1>
+            <p className="mt-4 max-w-[52ch] text-lg leading-relaxed md:text-xl">
+              {tx(
+                'החנות של Byond Intima: המארזים, מתנות, ודברים שמשלימים את הערב. מנויים מקבלים הנחה קבועה על כל פריט.',
+                'The Byond Intima shop: the boxes, gifts and things that complete the evening. Members get a standing discount on every item.'
+              )}
+            </p>
           </div>
-          {CATEGORIES.map(cat => {
-            if (cat.id === 'premium' && !isPurchaseMode) return null;
-            return (
-              <button
-                key={cat.id}
-                onClick={() => setActiveCategory(cat.id)}
-                className={cn(
-                  "px-6 py-2 rounded-full border transition-all duration-300 text-sm font-medium",
-                  activeCategory === cat.id
-                    ? "bg-brand-gold border-brand-gold text-brand-black"
-                    : "bg-white/5 border-white/10 text-white/60 hover:border-brand-gold/50 hover:text-white"
-                )}
-              >
-                {cat.name[language as 'he' | 'en']}
-              </button>
-            );
-          })}
+          <div className="flex flex-wrap items-center gap-3">
+            {user && (
+              <Link to="/orders" className="border-[3px] border-ink px-5 py-2.5 font-bold hover:bg-ink hover:text-paper">
+                {tx('ההזמנות שלי', 'My orders')}
+              </Link>
+            )}
+            <button onClick={() => setIsCartOpen(true)} className="flex items-center gap-2 bg-ink px-5 py-3 font-bold text-paper hover:bg-spot">
+              <ShoppingBag size={18} />
+              {tx('הסל', 'Cart')}
+              <span className="bg-paper px-1.5 text-sm text-ink tabular-nums">{totalItems}</span>
+            </button>
+          </div>
         </div>
 
-        {/* Products Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-          {isLoading ? (
-            <div className="col-span-full flex flex-col items-center justify-center py-20">
-              <Loader2 className="animate-spin text-brand-gold mb-4" size={48} />
-              <p className="text-white/40 font-serif italic">טוען את הקולקציה...</p>
-            </div>
-          ) : (
-            <AnimatePresence mode="popLayout">
-              {filteredProducts.map((product, index) => {
-              const cartItem = cart[product.id];
-              const quantity = cartItem?.quantity || 0;
+        {/* Category index */}
+        <nav aria-label={tx('קטגוריות', 'Categories')} className="mx-auto max-w-[1440px] overflow-x-auto px-4 md:px-8 lg:px-14">
+          <ul className="flex min-w-max border-t border-ink">
+            {CATEGORIES.map((cat) =>
+              counts[cat.id] > 0 ? (
+                <li key={cat.id}>
+                  <button
+                    onClick={() => setActiveCategory(cat.id)}
+                    aria-pressed={activeCategory === cat.id}
+                    className={cn(
+                      'flex items-baseline gap-2 border-b-[5px] px-4 py-3 text-base font-bold transition-colors',
+                      activeCategory === cat.id ? 'border-spot text-spot' : 'border-transparent hover:text-spot'
+                    )}
+                  >
+                    {he ? cat.he : cat.en}
+                    <span className="text-xs font-medium tabular-nums opacity-70">{counts[cat.id]}</span>
+                  </button>
+                </li>
+              ) : null
+            )}
+          </ul>
+        </nav>
+      </header>
 
+      {/* Catalogue: a ruled page, not a grid of floating cards */}
+      <section className="mx-auto max-w-[1440px] px-4 pb-24 md:px-8 lg:px-14">
+        <ul className="grid grid-cols-1 border-ink sm:grid-cols-2 lg:grid-cols-3">
+          <AnimatePresence mode="popLayout" initial={false}>
+            {filtered.map((product) => {
+              const qty = cart[product.id]?.quantity || 0;
+              const locked = product.isPremium && !isPurchaseMode;
+              const mPrice = memberPrice(product.price);
+              const isFav = favoriteProducts.includes(product.id);
+              const open = expanded === product.id;
               return (
-                <motion.div
+                <motion.li
                   key={product.id}
-                  layout
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  onHoverStart={() => setHoveredProductId(product.id)}
-                  onHoverEnd={() => setHoveredProductId(null)}
-                  whileHover={{ 
-                    y: -10, 
-                    boxShadow: "0 20px 25px -5px rgba(212, 175, 55, 0.1), 0 10px 10px -5px rgba(212, 175, 55, 0.04)" 
-                  }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ duration: 0.3 }}
-                  className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden group hover:border-brand-gold/30 transition-all flex flex-col"
+                  layout={!reduce}
+                  initial={reduce ? false : { opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={reduce ? undefined : { opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex flex-col border-b border-ink py-8 sm:px-5 sm:odd:border-e lg:odd:border-e-0 lg:[&:not(:nth-child(3n))]:border-e"
                 >
-                  <div className="aspect-square overflow-hidden relative">
-                    <AnimatePresence mode="wait">
-                      <motion.div
-                        key={hoveredProductId === product.id && product.hoverImage ? 'hover' : 'default'}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.5 }}
-                        className="w-full h-full"
-                      >
-                        <EditableImage
-                          contentId={`boutique_product_${product.id}_image`}
-                          defaultSrc={hoveredProductId === product.id && product.hoverImage ? product.hoverImage : product.image}
-                          alt={product.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                        />
-                      </motion.div>
-                    </AnimatePresence>
-
-                    {/* Live Personalization Preview */}
+                  <div className="group relative aspect-[4/5] overflow-hidden bg-surface">
+                    <EditableImage
+                      contentId={`boutique_product_${product.id}_image`}
+                      defaultSrc={product.image}
+                      alt={product.name}
+                      className="h-full w-full object-cover mix-blend-multiply grayscale contrast-125 transition-[filter] duration-300 group-hover:grayscale-0"
+                    />
                     {product.personalizable && personalization[product.id]?.name && (
-                      <motion.div 
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="absolute inset-0 flex items-center justify-center pointer-events-none"
-                      >
-                        <div className="bg-white/10 backdrop-blur-[2px] px-4 py-2 rounded border border-white/20 transform -rotate-12">
-                          <span className="text-white font-serif text-lg tracking-widest opacity-80 drop-shadow-lg">
-                            {personalization[product.id].name}
-                          </span>
-                        </div>
-                      </motion.div>
-                    )}
-
-                    {/* Logo Overlay for specific products */}
-                    {(product.id === 'boutique_wine_glasses' || product.id === 'boutique_cocktail_set') && (
-                      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 opacity-40 pointer-events-none">
-                        <span className="text-[10px] font-serif tracking-[0.5em] text-white uppercase">BYOND</span>
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-paper/90 px-3 py-2 text-center font-display text-3xl font-bold">
+                        {personalization[product.id].name}
                       </div>
                     )}
-
-                    <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
-                      <div className="bg-brand-black/80 backdrop-blur-sm px-4 py-2 rounded-full border border-white/10">
-                        <span className="text-brand-gold font-serif">₪{product.price}</span>
-                      </div>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleFavoriteProduct(product.id);
-                        }}
-                        className={cn(
-                          "w-10 h-10 rounded-full flex items-center justify-center transition-all bg-brand-black/80 backdrop-blur-sm border border-white/10 group/fav",
-                          favoriteProducts.includes(product.id) ? "text-red-500 border-red-500/30" : "text-white/40 hover:text-brand-gold"
-                        )}
-                      >
-                        <Heart size={18} fill={favoriteProducts.includes(product.id) ? "currentColor" : "none"} className={cn("transition-transform group-hover/fav:scale-110")} />
-                      </button>
+                    <div className="absolute start-0 top-0 flex gap-1">
+                      {product.category === 'experience' && <span className="bg-spot px-2 py-1 text-xs font-bold text-paper">{tx('מארז', 'Box')}</span>}
+                      {product.isPremium && <span className="bg-ink px-2 py-1 text-xs font-bold text-paper">{tx('למנויים', 'Members')}</span>}
                     </div>
-                    {product.isPremium && (
-                      <div className="absolute top-4 left-4 bg-brand-gold text-brand-black px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 shadow-lg">
-                        <Sparkles size={10} />
-                        Premium
-                      </div>
-                    )}
-                    {product.category === 'personalization' && !product.isPremium && (
-                      <div className="absolute top-4 left-4 bg-brand-gold text-brand-black p-2 rounded-full shadow-lg">
-                        <PenTool size={16} />
-                      </div>
+                    {user && (
+                      <button
+                        onClick={() => toggleFavorite(product.id)}
+                        aria-pressed={isFav}
+                        aria-label={isFav ? tx('הסרה מהמועדפים', 'Remove from favourites') : tx('הוספה למועדפים', 'Add to favourites')}
+                        className={cn('absolute end-2 top-2 bg-paper p-2', isFav ? 'text-spot' : 'text-ink hover:text-spot')}
+                      >
+                        <Heart size={18} fill={isFav ? 'currentColor' : 'none'} />
+                      </button>
                     )}
                   </div>
 
-                  <div className="p-8 flex-grow flex flex-col">
-                    <div className="flex-grow">
-                      <EditableText
-                        contentId={`${product.id}_name`}
-                        defaultText={product.name}
-                        as="h3"
-                        className="text-2xl font-serif mb-3"
+                  <div className="mt-5 flex items-start justify-between gap-4">
+                    <h2 className="text-xl font-bold leading-snug md:text-2xl">{product.name}</h2>
+                    <div className="text-end">
+                      <p className="font-display text-4xl font-bold leading-none tabular-nums">₪{product.price}</p>
+                      {mPrice !== null && <p className="mt-1 text-sm font-bold text-spot">{tx(`למנויים ₪${mPrice}`, `Members ₪${mPrice}`)}</p>}
+                    </div>
+                  </div>
+                  {product.category === 'experience' && product.avgTime && <p className="mt-1 text-sm font-bold text-spot">{product.avgTime}</p>}
+                  <p className="mt-3 text-base leading-relaxed text-ink/80">{product.description}</p>
+
+                  {product.personalizable && !locked && (
+                    <fieldset className="mt-4 grid gap-2">
+                      <legend className="mb-1 text-sm font-bold">{tx('התאמה אישית', 'Personalise')}</legend>
+                      <label className="sr-only" htmlFor={`pn-${product.id}`}>{tx('שם לחריטה', 'Name to engrave')}</label>
+                      <input
+                        id={`pn-${product.id}`}
+                        value={personalization[product.id]?.name || ''}
+                        onChange={(e) => setField(product.id, 'name', e.target.value)}
+                        placeholder={tx('שם לחריטה', 'Name to engrave')}
+                        maxLength={24}
+                        className="border-2 border-ink bg-paper px-3 py-2 text-base placeholder:text-ink/60 focus:border-spot focus:outline-none"
                       />
-                      
-                      <p className="text-white/60 text-sm mb-4 italic leading-relaxed">
-                        {product.description}
-                      </p>
+                      <label className="sr-only" htmlFor={`pd-${product.id}`}>{tx('הקדשה', 'Dedication')}</label>
+                      <input
+                        id={`pd-${product.id}`}
+                        value={personalization[product.id]?.dedication || ''}
+                        onChange={(e) => setField(product.id, 'dedication', e.target.value)}
+                        placeholder={tx('הקדשה (לא חובה)', 'Dedication (optional)')}
+                        maxLength={80}
+                        className="border-2 border-ink bg-paper px-3 py-2 text-base placeholder:text-ink/60 focus:border-spot focus:outline-none"
+                      />
+                    </fieldset>
+                  )}
 
-                      {/* Reviews */}
-                      <div className="flex items-center gap-2 mb-6">
-                        <div className="flex items-center text-brand-gold">
-                          <Star size={14} className="fill-current" />
-                          <span className="ml-1 text-sm font-medium">{product.reviews.rating}</span>
-                        </div>
-                        <span className="text-white/40 text-xs">({product.reviews.count} {language === 'he' ? 'ביקורות' : 'reviews'})</span>
-                      </div>
-
-                      {/* Personalization Section */}
-                      {product.personalizable && (
-                        <div className="mb-6 space-y-3 p-4 bg-brand-gold/5 rounded-xl border border-brand-gold/20">
-                          <div className="flex items-center gap-2 text-brand-gold text-xs font-bold uppercase tracking-widest mb-2">
-                            <Sparkles size={12} />
-                            {language === 'he' ? 'התאמה אישית' : 'Personalization'}
-                          </div>
-                          <input
-                            type="text"
-                            placeholder={language === 'he' ? 'שם לחריטה' : 'Name to engrave'}
-                            value={personalization[product.id]?.name || ''}
-                            onChange={(e) => handlePersonalizationChange(product.id, 'name', e.target.value)}
-                            className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-brand-gold outline-none transition-colors"
-                          />
-                          <textarea
-                            placeholder={language === 'he' ? 'הקדשה אישית' : 'Personal dedication'}
-                            value={personalization[product.id]?.dedication || ''}
-                            onChange={(e) => handlePersonalizationChange(product.id, 'dedication', e.target.value)}
-                            className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-brand-gold outline-none transition-colors h-20 resize-none"
-                          />
-                        </div>
-                      )}
-
-                      {/* Details Toggle */}
-                      <button 
-                        onClick={() => toggleDetails(product.id)}
-                        className="flex items-center justify-between w-full py-3 border-t border-white/10 text-sm text-white/80 hover:text-brand-gold transition-colors mb-6"
+                  {(product.material || product.dimensions || product.care || product.features) && (
+                    <div className="mt-4 border-t border-ink">
+                      <button
+                        onClick={() => setExpanded(open ? null : product.id)}
+                        aria-expanded={open}
+                        className="flex w-full items-center justify-between py-3 text-sm font-bold hover:text-spot"
                       >
-                        <span>{language === 'he' ? 'פרטים נוספים ומפרט' : 'Details & Specs'}</span>
-                        {expandedProduct === product.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        {product.category === 'experience' ? tx('מה בפנים', "What's inside") : tx('פרטים ומפרט', 'Details')}
+                        <ChevronDown size={16} className={cn('transition-transform', open && 'rotate-180')} />
                       </button>
-
-                      <AnimatePresence>
-                        {expandedProduct === product.id && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            className="overflow-hidden mb-6"
+                      <AnimatePresence initial={false}>
+                        {open && (
+                          <motion.dl
+                            initial={{ height: 0 }}
+                            animate={{ height: 'auto' }}
+                            exit={{ height: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden text-sm"
                           >
-                            <div className="space-y-3 p-4 bg-white/5 rounded-xl border border-white/5 text-sm">
-                              <div className="flex items-start gap-3">
-                                <Info size={16} className="text-brand-gold shrink-0 mt-0.5" />
-                                <div>
-                                  <span className="text-white/40 block text-xs mb-0.5">{language === 'he' ? 'חומרים' : 'Material'}</span>
-                                  <span className="text-white/90">{product.material}</span>
+                            {product.features && (
+                              <ul className="pb-3">
+                                {product.features.map((f: string) => (
+                                  <li key={f} className="border-b border-rule py-1.5">{f}</li>
+                                ))}
+                              </ul>
+                            )}
+                            {[
+                              [tx('חומר', 'Material'), product.material],
+                              [tx('מידות', 'Dimensions'), product.dimensions],
+                              [tx('טיפול', 'Care'), product.care],
+                            ]
+                              .filter(([, v]) => v)
+                              .map(([k, v]) => (
+                                <div key={k as string} className="grid grid-cols-[90px_1fr] gap-2 border-b border-rule py-1.5">
+                                  <dt className="font-bold">{k}</dt>
+                                  <dd dir="auto">{v}</dd>
                                 </div>
-                              </div>
-                              <div className="flex items-start gap-3">
-                                <Ruler size={16} className="text-brand-gold shrink-0 mt-0.5" />
-                                <div>
-                                  <span className="text-white/40 block text-xs mb-0.5">{language === 'he' ? 'מידות' : 'Dimensions'}</span>
-                                  <span className="text-white/90">{product.dimensions}</span>
-                                </div>
-                              </div>
-                              <div className="flex items-start gap-3">
-                                <Droplets size={16} className="text-brand-gold shrink-0 mt-0.5" />
-                                <div>
-                                  <span className="text-white/40 block text-xs mb-0.5">{language === 'he' ? 'הוראות טיפול' : 'Care'}</span>
-                                  <span className="text-white/90">{product.care}</span>
-                                </div>
-                              </div>
-                            </div>
-                          </motion.div>
+                              ))}
+                          </motion.dl>
                         )}
                       </AnimatePresence>
                     </div>
+                  )}
 
-                    {quantity > 0 ? (
-                      <div className="flex items-center justify-between bg-white/5 rounded-full p-2 border border-brand-gold/30">
-                        <button
-                          onClick={() => updateQuantity(product.id, -1)}
-                          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-brand-gold"
-                        >
-                          -
-                        </button>
-                        <span className="font-serif text-lg w-12 text-center">{quantity}</span>
-                        <button
-                          onClick={() => updateQuantity(product.id, 1)}
-                          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-brand-gold"
-                        >
-                          +
+                  <div className="mt-auto pt-6">
+                    {locked ? (
+                      <div className="flex flex-wrap items-center justify-between gap-3 border-[3px] border-dashed border-ink px-4 py-3">
+                        <span className="font-bold">{tx('זמין למנויים בלבד', 'Members only')}</span>
+                        <Link to="/#membership" className="text-sm font-bold underline underline-offset-4 hover:text-spot">
+                          {tx('על המנוי', 'About membership')}
+                        </Link>
+                      </div>
+                    ) : qty > 0 ? (
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center border-[3px] border-ink">
+                          <button onClick={() => updateQuantity(product.id, 1)} className="p-3 hover:bg-ink hover:text-paper" aria-label={tx('הוספת יחידה', 'Add one')}>
+                            <Plus size={16} />
+                          </button>
+                          <span className="min-w-10 text-center font-display text-3xl font-bold tabular-nums" aria-live="polite">{qty}</span>
+                          <button onClick={() => updateQuantity(product.id, -1)} className="p-3 hover:bg-ink hover:text-paper" aria-label={tx('הורדת יחידה', 'Remove one')}>
+                            <Minus size={16} />
+                          </button>
+                        </div>
+                        <button onClick={() => setIsCartOpen(true)} className="text-sm font-bold underline underline-offset-4 hover:text-spot">
+                          {tx('לסל', 'View cart')}
                         </button>
                       </div>
                     ) : (
-                      <button
-                        onClick={() => addToCart(product.id, personalization[product.id])}
-                        disabled={product.isPremium && !isPurchaseMode}
-                        className={cn(
-                          "w-full py-4 rounded-full border border-white/20 transition-all duration-300 flex items-center justify-center gap-2 group/btn",
-                          product.isPremium && !isPurchaseMode
-                            ? "opacity-50 cursor-not-allowed bg-white/5"
-                            : "hover:border-brand-gold hover:bg-brand-gold hover:text-brand-black"
-                        )}
-                      >
-                        {product.isPremium && !isPurchaseMode ? (
-                          <>
-                            <ShoppingCart size={18} />
-                            <span>{language === 'he' ? 'בלעדי למנויי פרימיום' : 'Premium Exclusive'}</span>
-                          </>
-                        ) : (
-                          <>
-                            <ShoppingCart size={18} className="group-hover/btn:scale-110 transition-transform" />
-                            <span>{language === 'he' ? 'הוספה לסל' : 'Add to Cart'}</span>
-                          </>
-                        )}
-                      </button>
+                      <Ticket label={tx('להוסיף לסל', 'Add to cart')} stub={`₪${product.price}`} size="md" onClick={() => add(product)} className="w-full" />
                     )}
                   </div>
-                </motion.div>
+                </motion.li>
               );
             })}
           </AnimatePresence>
-        )}
-      </div>
-    </div>
+        </ul>
+        {filtered.length === 0 && <p className="py-20 text-center text-lg">{tx('אין כרגע מוצרים בקטגוריה הזו.', 'Nothing in this category right now.')}</p>}
+      </section>
 
-      {/* Floating Cart Button */}
-      <motion.button
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        onClick={() => setIsCartOpen(true)}
-        className="fixed bottom-24 left-6 z-50 w-16 h-16 bg-brand-gold text-brand-black rounded-full shadow-2xl flex items-center justify-center group hover:scale-110 transition-transform"
-      >
-        <ShoppingCart size={24} />
-        {totalItems > 0 && (
-          <span className="absolute -top-1 -right-1 w-6 h-6 bg-brand-black text-brand-gold text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-brand-gold">
-            {totalItems}
-          </span>
-        )}
-      </motion.button>
-
-      {/* Cart Drawer */}
+      {/* Cart drawer */}
       <AnimatePresence>
         {isCartOpen && (
           <>
@@ -461,140 +356,128 @@ export const Boutique = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsCartOpen(false)}
-              className="fixed inset-0 bg-brand-black/60 backdrop-blur-sm z-[150]"
+              className="fixed inset-0 z-[60] bg-ink/50"
             />
-            <motion.div
-              initial={{ x: '-100%' }}
+            <motion.aside
+              role="dialog"
+              aria-modal="true"
+              aria-label={tx('סל הקניות', 'Shopping cart')}
+              initial={{ x: he ? '-100%' : '100%' }}
               animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              className="fixed inset-y-0 left-0 w-full max-w-md bg-brand-cream z-[160] shadow-2xl flex flex-col"
-              dir="rtl"
+              exit={{ x: he ? '-100%' : '100%' }}
+              transition={{ duration: 0.28, ease: [0.2, 0.8, 0.2, 1] }}
+              className="fixed inset-y-0 end-0 z-[70] flex w-full max-w-md flex-col border-s-[3px] border-ink bg-paper"
             >
-              <div className="p-6 bg-brand-black text-white flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <ShoppingCart className="text-brand-gold" size={20} />
-                  <h3 className="text-xl font-serif">סל הקניות</h3>
-                </div>
-                <button onClick={() => setIsCartOpen(false)} className="text-white/40 hover:text-white transition-colors">
+              <div className="flex items-end justify-between border-b-[3px] border-ink px-6 py-5">
+                <h2 className="font-display text-6xl font-bold leading-[0.85]">{tx('הסל', 'Cart')}</h2>
+                <button onClick={() => setIsCartOpen(false)} className="p-2 hover:text-spot" aria-label={tx('סגירת הסל', 'Close cart')} autoFocus>
                   <X size={24} />
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                {cartItems.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-40">
-                    <ShoppingBag size={48} />
-                    <p className="font-serif italic">הסל שלכם ריק...</p>
-                  </div>
-                ) : (
-                  cartItems.map((item) => {
-                    const product = products.find(p => p.id === item.id);
-                    if (!product) return null;
-                    return (
-                      <div key={item.id} className="flex gap-4 p-4 bg-white rounded-2xl border border-brand-gold/10 group">
-                        <div className="w-20 h-20 rounded-xl overflow-hidden shrink-0">
-                          <img src={product.image} alt={product.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-serif text-brand-black truncate">{product.name}</h4>
-                          <p className="text-xs text-brand-gold font-bold mb-2">₪{product.price}</p>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3 bg-brand-gold/5 rounded-full px-3 py-1 border border-brand-gold/10">
-                              <button onClick={() => updateQuantity(item.id, -1)} className="text-brand-gold hover:text-brand-black transition-colors">
-                                <Minus size={12} />
-                              </button>
-                              <span className="text-xs font-bold w-4 text-center">{item.quantity}</span>
-                              <button onClick={() => updateQuantity(item.id, 1)} className="text-brand-gold hover:text-brand-black transition-colors">
-                                <Plus size={12} />
-                              </button>
-                            </div>
-                            <button onClick={() => removeFromCart(item.id)} className="text-brand-black/20 hover:text-red-500 transition-colors">
-                              <Trash2 size={16} />
+              {cartItems.length === 0 ? (
+                <div className="flex flex-1 flex-col items-start justify-center gap-4 px-6">
+                  <p className="text-xl font-bold">{tx('הסל ריק.', 'Your cart is empty.')}</p>
+                  <button onClick={() => setIsCartOpen(false)} className="border-[3px] border-ink px-5 py-2.5 font-bold hover:bg-ink hover:text-paper">
+                    {tx('חזרה לבוטיק', 'Back to the boutique')}
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <ul className="flex-1 overflow-y-auto px-6">
+                    {cartItems.map((item) => (
+                      <li key={item.id} className="grid grid-cols-[64px_1fr_auto] items-center gap-4 border-b border-ink py-4">
+                        {item.product?.image ? <img src={item.product.image} alt="" className="aspect-square w-full object-cover grayscale mix-blend-multiply" /> : <span />}
+                        <div>
+                          <p className="font-bold leading-snug">{item.product?.name ?? item.id}</p>
+                          {item.personalization?.name && <p className="text-sm text-ink/70">{tx('חריטה:', 'Engraving:')} {item.personalization.name}</p>}
+                          <div className="mt-2 flex items-center gap-3">
+                            <button onClick={() => updateQuantity(item.id, -1)} className="border-2 border-ink p-1 hover:bg-ink hover:text-paper" aria-label={tx('הורדת יחידה', 'Remove one')}>
+                              <Minus size={12} />
+                            </button>
+                            <span className="font-bold tabular-nums">{item.quantity}</span>
+                            <button onClick={() => updateQuantity(item.id, 1)} className="border-2 border-ink p-1 hover:bg-ink hover:text-paper" aria-label={tx('הוספת יחידה', 'Add one')}>
+                              <Plus size={12} />
                             </button>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
+                        <div className="flex flex-col items-end gap-2">
+                          <span className="font-display text-3xl font-bold tabular-nums">₪{(item.product?.price || 0) * item.quantity}</span>
+                          <button onClick={() => removeFromCart(item.id)} className="p-1 hover:text-spot" aria-label={tx('הסרה מהסל', 'Remove from cart')}>
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
 
-              {cartItems.length > 0 && (
-                <div className="p-6 bg-white border-t border-brand-gold/10 space-y-4">
-                  {/* Promo Code Section */}
-                  {!promoCode ? (
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder={language === 'he' ? 'קוד קופון' : 'Promo Code'}
-                        value={promoInput}
-                        onChange={(e) => setPromoInput(e.target.value)}
-                        className="flex-1 bg-brand-gold/5 border border-brand-gold/20 rounded-xl px-4 py-2 text-sm focus:border-brand-gold outline-none text-brand-black"
-                      />
-                      <button
-                        onClick={handleApplyPromo}
-                        className="bg-brand-black text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-brand-gold hover:text-brand-black transition-colors"
+                  <div className="border-t-[3px] border-ink px-6 py-5">
+                    {!promoCode ? (
+                      <form
+                        className="flex gap-2"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          if (!promoInput.trim()) return;
+                          showAlert(tx('קוד הקופון הזה לא תקף כרגע.', 'This promo code is not valid right now.'), tx('קוד לא תקין', 'Invalid code'));
+                        }}
                       >
-                        {language === 'he' ? 'החל' : 'Apply'}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between bg-green-50 border border-green-100 rounded-xl px-4 py-2">
-                      <div className="flex items-center gap-2 text-green-700 text-xs font-bold">
-                        <Tag size={14} />
-                        <span>{promoCode} {language === 'he' ? 'הופעל' : 'Applied'}</span>
-                      </div>
-                      <button 
-                        onClick={() => applyPromoCode(null)}
-                        className="text-green-700/40 hover:text-green-700 transition-colors"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="space-y-2 border-b border-brand-gold/10 pb-4">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-brand-black/60">{language === 'he' ? 'סיכום ביניים:' : 'Subtotal:'}</span>
-                      <span className="text-brand-black font-medium">₪{subtotal}</span>
-                    </div>
-                    {discountAmount > 0 && (
-                      <div className="flex justify-between items-center text-sm text-green-600">
-                        <span className="flex items-center gap-1">
-                          <Tag size={12} />
-                          {language === 'he' ? 'הנחה:' : 'Discount:'}
-                        </span>
-                        <span>-₪{discountAmount}</span>
+                        <label htmlFor="promo" className="sr-only">{tx('קוד קופון', 'Promo code')}</label>
+                        <input
+                          id="promo"
+                          value={promoInput}
+                          onChange={(e) => setPromoInput(e.target.value)}
+                          placeholder={tx('קוד קופון', 'Promo code')}
+                          className="min-w-0 flex-1 border-2 border-ink bg-paper px-3 py-2 placeholder:text-ink/60 focus:border-spot focus:outline-none"
+                        />
+                        <button type="submit" className="border-2 border-ink px-4 font-bold hover:bg-ink hover:text-paper">
+                          {tx('הפעלה', 'Apply')}
+                        </button>
+                      </form>
+                    ) : (
+                      <div className="flex items-center justify-between text-sm font-bold">
+                        <span>{promoCode} · {tx('הופעל', 'applied')}</span>
+                        <button onClick={() => applyPromoCode(null)} className="underline hover:text-spot">
+                          {tx('הסרה', 'Remove')}
+                        </button>
                       </div>
                     )}
+                    <dl className="mt-4 space-y-1 text-base">
+                      <div className="flex justify-between">
+                        <dt>{tx('סכום ביניים', 'Subtotal')}</dt>
+                        <dd className="tabular-nums">₪{subtotal}</dd>
+                      </div>
+                      {discountAmount > 0 && (
+                        <div className="flex justify-between text-spot">
+                          <dt>{tx('הנחה', 'Discount')}</dt>
+                          <dd className="tabular-nums">-₪{discountAmount}</dd>
+                        </div>
+                      )}
+                      <div className="flex items-end justify-between border-t border-ink pt-2">
+                        <dt className="font-bold">{tx('לתשלום', 'Total')}</dt>
+                        <dd className="font-display text-5xl font-bold leading-none tabular-nums">₪{totalPrice}</dd>
+                      </div>
+                    </dl>
+                    <Ticket
+                      label={tx('המשך לתשלום', 'Checkout')}
+                      stub={String(totalItems)}
+                      stubCaption={tx('פריטים', 'items')}
+                      size="md"
+                      tone="spot"
+                      className="mt-5 w-full"
+                      onClick={() => {
+                        setIsCartOpen(false);
+                        setIsCheckoutOpen(true);
+                      }}
+                    />
                   </div>
-
-                  <div className="flex justify-between items-center">
-                    <span className="text-brand-black/60 font-serif">{language === 'he' ? 'סה"כ לתשלום:' : 'Total:'}</span>
-                    <span className="text-2xl font-serif text-brand-gold">₪{totalPrice}</span>
-                  </div>
-                  <button 
-                    onClick={() => {
-                      setIsCartOpen(false);
-                      setIsCheckoutOpen(true);
-                    }}
-                    className="w-full py-4 bg-brand-black text-white text-[10px] font-black uppercase tracking-[0.3em] rounded-2xl hover:bg-brand-gold hover:text-brand-black transition-all duration-500 flex items-center justify-center gap-3 group"
-                  >
-                    {language === 'he' ? 'המשך לתשלום' : 'Checkout'}
-                    <ArrowRight size={14} className="group-hover:translate-x-[-4px] transition-transform" />
-                  </button>
-                </div>
+                </>
               )}
-            </motion.div>
+            </motion.aside>
           </>
         )}
       </AnimatePresence>
 
-      <Checkout 
-        isOpen={isCheckoutOpen} 
-        onClose={() => setIsCheckoutOpen(false)} 
-        total={totalPrice} 
-      />
+      <Checkout isOpen={isCheckoutOpen} onClose={() => setIsCheckoutOpen(false)} total={totalPrice} />
     </div>
   );
 };
