@@ -5,7 +5,7 @@ import { GoogleGenAI } from "@google/genai";
 
 export const AiPlaylistGenerator = ({ onSave }: { onSave: (playlist: any) => void }) => {
   const [aiPlaylistPrompt, setAiPlaylistPrompt] = useState('');
-  const [selectedPlatformForGeneration, setSelectedPlatformForGeneration] = useState('Spotify');
+  const [selectedPlatformForGeneration, setSelectedPlatformForGeneration] = useState('YouTube Music');
   const [isGeneratingPlaylist, setIsGeneratingPlaylist] = useState(false);
   const [generatedPlaylist, setGeneratedPlaylist] = useState<any>(null);
 
@@ -73,7 +73,6 @@ export const AiPlaylistGenerator = ({ onSave }: { onSave: (playlist: any) => voi
             onChange={(e) => setSelectedPlatformForGeneration(e.target.value)}
             className="bg-white border border-brand-gold/10 px-3 py-3 text-[10px] uppercase tracking-widest outline-none focus:border-brand-gold"
           >
-            <option value="Spotify">Spotify</option>
             <option value="Apple Music">Apple Music</option>
             <option value="YouTube Music">YouTube Music</option>
           </select>

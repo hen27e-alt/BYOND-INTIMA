@@ -15,7 +15,7 @@ export const CustomPlaylistModal: React.FC<CustomPlaylistModalProps> = ({ isOpen
     mood: '',
     genre: '',
     era: '',
-    platform: 'Spotify'
+    platform: 'YouTube Music'
   });
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -129,7 +129,6 @@ export const CustomPlaylistModal: React.FC<CustomPlaylistModalProps> = ({ isOpen
                   onChange={(e) => setCustomPlaylist({...customPlaylist, platform: e.target.value})}
                   className="w-full bg-white border border-brand-gold/20 p-3 outline-none focus:border-brand-gold transition-colors"
                 >
-                  <option value="Spotify">Spotify</option>
                   <option value="Apple Music">Apple Music</option>
                   <option value="YouTube Music">YouTube Music</option>
                 </select>

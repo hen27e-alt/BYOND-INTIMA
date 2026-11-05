@@ -154,28 +154,12 @@ export const Dashboard = () => {
   const [celebratedMission, setCelebratedMission] = React.useState<any>(null);
   const [playlists, setPlaylists] = React.useState([
     { 
-      id: '1', 
-      title: 'Romantic Evenings', 
-      platform: 'Spotify', 
-      url: 'https://open.spotify.com/embed/playlist/37i9dQZF1DX76W9Srh67vR', 
-      thumbnail: 'https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&q=80&w=400', 
-      tracks: ['Perfect - Ed Sheeran', 'All of Me - John Legend', 'Thinking Out Loud - Ed Sheeran', 'Say You Won\'t Let Go - James Arthur', 'A Thousand Years - Christina Perri'] 
-    },
-    { 
       id: '2', 
       title: 'Chill & Connect', 
       platform: 'YouTube Music', 
       url: 'https://www.youtube.com/embed/videoseries?list=PLMC9KNkIncKtPojQ-nIu67bb6VXVICWzL', 
       thumbnail: 'https://images.unsplash.com/photo-1459749411177-042180ce673c?auto=format&fit=crop&q=80&w=400', 
       tracks: ['Weightless - Marconi Union', 'Sunset Lover - Petit Biscuit', 'River Flows in You - Yiruma', 'Lullaby - Low', 'Sparks - Coldplay'] 
-    },
-    { 
-      id: '3', 
-      title: 'Deep Conversations', 
-      platform: 'Spotify', 
-      url: 'https://open.spotify.com/embed/playlist/37i9dQZF1DX4sWsp6KmOR3', 
-      thumbnail: 'https://images.unsplash.com/photo-1526218626217-dc65a29bb444?auto=format&fit=crop&q=80&w=400', 
-      tracks: ['Fix You - Coldplay', 'Landslide - Fleetwood Mac', 'Hallelujah - Jeff Buckley', 'The Night We Met - Lord Huron', 'Skinny Love - Bon Iver'] 
     },
     { 
       id: '4', 
@@ -187,7 +171,6 @@ export const Dashboard = () => {
     },
   ]);
 
-  const [connectedPlatforms, setConnectedPlatforms] = React.useState<string[]>([]);
   const [libraryView, setLibraryView] = React.useState<'main' | 'recipes' | 'movies' | 'fridge' | 'sommelier'>('main');
   const [missionView, setMissionView] = React.useState<'list' | 'kitchen-cards'>('list');
 
@@ -433,34 +416,6 @@ export const Dashboard = () => {
     }
   };
 
-  const handleConnectPlatform = async (platform: string) => {
-    try {
-      const endpoint = platform === 'Spotify' ? '/api/auth/spotify/url' : '/api/auth/apple-music/url';
-      const response = await fetch(endpoint);
-      const { url } = await response.json();
-
-      const authWindow = window.open(url, 'oauth_popup', 'width=600,height=700');
-      if (!authWindow) {
-        showAlert('Please allow popups to connect your account.');
-      }
-    } catch (error) {
-      console.error('Auth error:', error);
-    }
-  };
-
-  React.useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
-        const platform = event.data.platform;
-        if (!connectedPlatforms.includes(platform)) {
-          setConnectedPlatforms(prev => [...prev, platform]);
-        }
-        showAlert(`חשבון ה-${platform} שלך חובר בהצלחה!`);
-      }
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [connectedPlatforms]);
 
 
 

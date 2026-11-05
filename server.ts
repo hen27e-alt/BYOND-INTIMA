@@ -120,60 +120,6 @@ async function startServer() {
   const TMDB_API_KEY = process.env.TMDB_API_KEY;
   const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 
-  // Spotify OAuth Routes
-  app.get('/api/auth/spotify/url', (req, res) => {
-    const redirectUri = `${req.headers.origin || process.env.APP_URL || 'http://localhost:3000'}/auth/spotify/callback`;
-    const params = new URLSearchParams({
-      client_id: process.env.SPOTIFY_CLIENT_ID || '',
-      response_type: 'code',
-      redirect_uri: redirectUri,
-      scope: 'user-read-private user-read-email playlist-read-private playlist-modify-public playlist-modify-private user-top-read user-read-recently-played',
-    });
-    res.json({ url: `https://accounts.spotify.com/authorize?${params}` });
-  });
-
-  app.get(['/auth/spotify/callback', '/auth/spotify/callback/'], async (req, res) => {
-    const { code } = req.query;
-    const redirectUri = `${req.headers.origin || process.env.APP_URL || 'http://localhost:3000'}/auth/spotify/callback`;
-    
-    try {
-      const response = await fetch('https://accounts.spotify.com/api/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': 'Basic ' + Buffer.from(process.env.SPOTIFY_CLIENT_ID + ':' + process.env.SPOTIFY_CLIENT_SECRET).toString('base64')
-        },
-        body: new URLSearchParams({
-          grant_type: 'authorization_code',
-          code: code as string,
-          redirect_uri: redirectUri,
-        })
-      });
-      
-      const data = await response.json();
-      
-      // Send success message to parent window and close popup
-      res.send(`
-        <html>
-          <body>
-            <script>
-              if (window.opener) {
-                window.opener.postMessage({ type: 'SPOTIFY_AUTH_SUCCESS', tokens: ${JSON.stringify(data)} }, '*');
-                window.close();
-              } else {
-                window.location.href = '/';
-              }
-            </script>
-            <p>Authentication successful. This window should close automatically.</p>
-          </body>
-        </html>
-      `);
-    } catch (error) {
-      console.error('Spotify auth error:', error);
-      res.status(500).send('Authentication failed');
-    }
-  });
-
   // TMDB Proxy Routes
   app.get("/api/movies/search", async (req, res) => {
     const { query } = req.query;
@@ -326,67 +272,6 @@ async function startServer() {
       console.error("Stripe error:", error);
       res.status(500).json({ error: error.message });
     }
-  });
-
-  // OAuth Routes for Music Platforms
-  app.get("/api/auth/spotify/url", (req, res) => {
-    const redirectUri = `${process.env.APP_URL || "http://localhost:3000"}/auth/spotify/callback`;
-    const scope = "user-read-private user-read-email playlist-modify-public playlist-modify-private";
-    const params = new URLSearchParams({
-      client_id: process.env.SPOTIFY_CLIENT_ID || "MOCK_CLIENT_ID",
-      redirect_uri: redirectUri,
-      response_type: "code",
-      scope: scope,
-      show_dialog: "true"
-    });
-    res.json({ url: `https://accounts.spotify.com/authorize?${params.toString()}` });
-  });
-
-  app.get("/auth/spotify/callback", (req, res) => {
-    // In a real app, you'd exchange the code for tokens here
-    res.send(`
-      <html>
-        <body>
-          <script>
-            if (window.opener) {
-              window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS', platform: 'Spotify' }, '*');
-              window.close();
-            } else {
-              window.location.href = '/dashboard';
-            }
-          </script>
-          <p>Spotify connected successfully. Closing window...</p>
-        </body>
-      </html>
-    `);
-  });
-
-  app.get("/api/auth/apple-music/url", (req, res) => {
-    // Apple Music typically uses MusicKit JS on the client, but for this flow 
-    // we'll simulate a similar popup-based authorization
-    res.json({ url: "https://music.apple.com/authorize?client_id=MOCK_APPLE_ID" });
-  });
-
-  app.get("/auth/apple-music/callback", (req, res) => {
-    res.send(`
-      <html>
-        <body>
-          <script>
-            if (window.opener) {
-              window.opener.postMessage({ 
-                type: 'OAUTH_AUTH_SUCCESS', 
-                platform: 'Apple Music',
-                tokens: { access_token: 'MOCK_APPLE_TOKEN', expires_in: 3600 } 
-              }, '*');
-              window.close();
-            } else {
-              window.location.href = '/dashboard';
-            }
-          </script>
-          <p>Apple Music connected successfully. Closing window...</p>
-        </body>
-      </html>
-    `);
   });
 
   // Vite middleware for development

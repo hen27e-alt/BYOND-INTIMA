@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Music, Play, Loader2, Sparkles, Disc, Plus, ExternalLink, Heart, Calendar } from 'lucide-react';
+import { Music, Play, Loader2, Sparkles, Disc } from 'lucide-react';
 import { GoogleGenAI, Type } from "@google/genai";
-import { useAlert } from './AlertModal';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -16,34 +15,11 @@ const MOODS = [
 ];
 
 export const MoodPlaylists = () => {
-  const { showAlert } = useAlert();
   const [selectedMood, setSelectedMood] = useState('');
   const [playlist, setPlaylist] = useState<any[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
   const [dateIdeas, setDateIdeas] = useState<any[]>([]);
   const [isGeneratingDates, setIsGeneratingDates] = useState(false);
-
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
-        setConnectedPlatforms(prev => [...new Set([...prev, event.data.platform])]);
-      }
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
-
-  const connectPlatform = async (platform: 'Spotify' | 'Apple Music') => {
-    const endpoint = platform === 'Spotify' ? '/api/auth/spotify/url' : '/api/auth/apple-music/url';
-    try {
-      const res = await fetch(endpoint);
-      const { url } = await res.json();
-      window.open(url, 'oauth_popup', 'width=600,height=700');
-    } catch (error) {
-      console.error(`Error connecting to ${platform}:`, error);
-    }
-  };
 
   const generatePlaylist = async (moodId: string) => {
     setSelectedMood(moodId);
@@ -90,15 +66,13 @@ export const MoodPlaylists = () => {
   };
 
   const suggestDateIdeas = async () => {
-    if (connectedPlatforms.length === 0) return;
     setIsGeneratingDates(true);
     setDateIdeas([]);
 
     try {
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `בהתבסס על העובדה שהמשתמש מחובר ל-${connectedPlatforms.join(' ו-')}, 
-          הצע 3 רעיונות לדייטים יצירתיים שקשורים למוזיקה או לאווירה מוזיקלית.
+        contents: `הצע 3 רעיונות לדייטים יצירתיים שקשורים למוזיקה או לאווירה מוזיקלית.
           החזר מערך JSON של אובייקטים עם title, description, ו-icon (emoji).`,
         config: {
           systemInstruction: "You are a creative date planner. Suggest dates inspired by music preferences. Return ONLY a valid JSON array.",
@@ -127,86 +101,25 @@ export const MoodPlaylists = () => {
     }
   };
 
-  const createSharedPlaylist = () => {
-    // In a real app, this would call a backend endpoint to create a playlist on Spotify/Apple Music
-    showAlert("יוצר פלייליסט משותף בחשבון ה-Spotify שלכם...");
-  };
-
   return (
     <div className="max-w-4xl mx-auto space-y-12">
       <div className="text-center">
         <h2 className="text-3xl font-serif text-brand-black flex items-center justify-center gap-3">
           <Music className="text-brand-gold" /> חוויה מוזיקלית זוגית
         </h2>
-        <p className="text-brand-black/60 mt-2">חברו את החשבונות שלכם, צרו פלייליסטים משותפים וקבלו המלצות לדייטים מבוססות מוזיקה.</p>
+        <p className="text-brand-black/60 mt-2">צרו פסקול לכל מצב רוח וקבלו רעיונות לדייטים מוזיקליים.</p>
       </div>
 
-      {/* Connection Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="flex justify-center">
         <button
-          onClick={() => connectPlatform('Spotify')}
-          className={`p-6 rounded-3xl border flex items-center justify-between transition-all ${
-            connectedPlatforms.includes('Spotify')
-              ? 'bg-green-50 border-green-200 text-green-700'
-              : 'bg-white border-brand-gold/10 text-brand-black hover:border-brand-gold/30'
-          }`}
+          onClick={suggestDateIdeas}
+          disabled={isGeneratingDates}
+          className="px-8 py-3 bg-brand-gold text-white rounded-full font-bold shadow-lg hover:bg-brand-black transition-all flex items-center gap-2 disabled:opacity-60"
         >
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-[#1DB954] rounded-full flex items-center justify-center text-white">
-              <Music size={24} />
-            </div>
-            <div className="text-right">
-              <h3 className="font-bold">Spotify</h3>
-              <p className="text-xs opacity-60">{connectedPlatforms.includes('Spotify') ? 'מחובר' : 'לחצו לחיבור חשבון'}</p>
-            </div>
-          </div>
-          {connectedPlatforms.includes('Spotify') ? <Heart size={20} fill="currentColor" /> : <Plus size={20} />}
-        </button>
-
-        <button
-          onClick={() => connectPlatform('Apple Music')}
-          className={`p-6 rounded-3xl border flex items-center justify-between transition-all ${
-            connectedPlatforms.includes('Apple Music')
-              ? 'bg-red-50 border-red-200 text-red-700'
-              : 'bg-white border-brand-gold/10 text-brand-black hover:border-brand-gold/30'
-          }`}
-        >
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-[#FA243C] rounded-full flex items-center justify-center text-white">
-              <Disc size={24} />
-            </div>
-            <div className="text-right">
-              <h3 className="font-bold">Apple Music</h3>
-              <p className="text-xs opacity-60">{connectedPlatforms.includes('Apple Music') ? 'מחובר' : 'לחצו לחיבור חשבון'}</p>
-            </div>
-          </div>
-          {connectedPlatforms.includes('Apple Music') ? <Heart size={20} fill="currentColor" /> : <Plus size={20} />}
+          {isGeneratingDates ? <Loader2 className="animate-spin" size={20} /> : <Sparkles size={20} />}
+          רעיונות לדייטים מוזיקליים
         </button>
       </div>
-
-      {connectedPlatforms.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-wrap justify-center gap-4"
-        >
-          <button
-            onClick={suggestDateIdeas}
-            disabled={isGeneratingDates}
-            className="px-8 py-3 bg-brand-gold text-white rounded-full font-bold shadow-lg hover:bg-brand-black transition-all flex items-center gap-2"
-          >
-            {isGeneratingDates ? <Loader2 className="animate-spin" size={20} /> : <Sparkles size={20} />}
-            המלצות לדייטים לפי הטעם שלנו
-          </button>
-          <button
-            onClick={createSharedPlaylist}
-            className="px-8 py-3 bg-brand-black text-white rounded-full font-bold shadow-lg hover:bg-brand-gold hover:text-brand-black transition-all flex items-center gap-2"
-          >
-            <Plus size={20} />
-            צור פלייליסט זוגי משותף
-          </button>
-        </motion.div>
-      )}
 
       {/* Date Ideas Display */}
       <AnimatePresence>
@@ -293,7 +206,7 @@ export const MoodPlaylists = () => {
                       <p className="text-brand-black/40 text-xs mt-1">{song.reason}</p>
                     </div>
                     <a 
-                      href={connectedPlatforms.includes('Spotify') ? `https://open.spotify.com/search/${encodeURIComponent(song.title + ' ' + song.artist)}` : `https://www.youtube.com/results?search_query=${encodeURIComponent(song.title + ' ' + song.artist)}`}
+                      href={`https://www.youtube.com/results?search_query=${encodeURIComponent(song.title + ' ' + song.artist)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="w-12 h-12 rounded-full bg-brand-gold/10 flex items-center justify-center text-brand-gold group-hover:bg-brand-gold group-hover:text-white transition-all shadow-sm"
@@ -305,23 +218,6 @@ export const MoodPlaylists = () => {
                 ))}
               </div>
               
-              {connectedPlatforms.includes('Spotify') && (
-                <div className="mt-8 pt-8 border-t border-brand-gold/10">
-                  <h4 className="text-lg font-serif text-brand-black mb-4 flex items-center gap-2">
-                    <Music size={18} className="text-[#1DB954]" />
-                    המלצות Spotify מותאמות אישית
-                  </h4>
-                  <iframe 
-                    src="https://open.spotify.com/embed/playlist/37i9dQZF1DXcBWIGoYBM5M?utm_source=generator" 
-                    width="100%" 
-                    height="152" 
-                    frameBorder="0" 
-                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
-                    loading="lazy"
-                    className="rounded-xl shadow-sm"
-                  ></iframe>
-                </div>
-              )}
             </div>
           </motion.div>
         ) : null}

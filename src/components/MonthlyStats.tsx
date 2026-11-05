@@ -64,7 +64,7 @@ export const MonthlyStats = () => {
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const prompt = `
-      You are an AI creating a "Spotify Wrapped" style relationship summary for a couple.
+      You are an AI creating a year-in-review style relationship summary for a couple.
       Here are their stats for this month:
       - New Memories Created: ${stats.memories}
       - Date Plans Made: ${stats.date_plans}
