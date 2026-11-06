@@ -32,3 +32,22 @@ export const BOX_DURATION_EN: Record<string, string> = {
   exp_velvet: '2–4 hours',
   exp_ecstasy: 'A whole night',
 };
+
+/** Hours on the night axis, counted from 18:00. Each box occupies a band that matches its real duration. */
+export const NIGHT_BANDS: Record<string, { from: number; to: number }> = {
+  exp_spark: { from: 2, to: 4 },
+  exp_velvet: { from: 3, to: 7 },
+  exp_ecstasy: { from: 2, to: 12 },
+};
+
+/** "20:00" for a band offset. */
+export const bandHour = (offset: number) => `${String((18 + offset) % 24).padStart(2, '0')}:00`;
+
+/** Box length in words, so Hebrew never has to render a reversed "1-2". */
+export const BOX_DURATION_HE: Record<string, string> = {
+  exp_spark: 'שעה עד שעתיים',
+  exp_velvet: 'שעתיים עד ארבע',
+  exp_ecstasy: 'לילה שלם',
+};
+
+export const boxDuration = (id: string, he: boolean) => (he ? BOX_DURATION_HE[id] : BOX_DURATION_EN[id]);

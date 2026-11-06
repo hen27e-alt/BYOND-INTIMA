@@ -8,7 +8,6 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useUI } from '../contexts/UIContext';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { useAlert } from '../components/AlertModal';
-import { Checkout } from '../components/Checkout';
 import { Ticket } from '../components/season/Ticket';
 import { cn } from '../lib/utils';
 import { db, handleFirestoreError, OperationType } from '../firebase';
@@ -67,7 +66,6 @@ export const Boutique = () => {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [personalization, setPersonalization] = useState<Record<string, { name: string; dedication: string }>>({});
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [promoInput, setPromoInput] = useState('');
 
   const favoriteProducts: string[] = profile?.favoriteProducts || [];
@@ -464,10 +462,8 @@ export const Boutique = () => {
                       size="md"
                       tone="spot"
                       className="mt-5 w-full"
-                      onClick={() => {
-                        setIsCartOpen(false);
-                        setIsCheckoutOpen(true);
-                      }}
+                      to="/checkout"
+                      onClick={() => setIsCartOpen(false)}
                     />
                   </div>
                 </>
@@ -477,7 +473,6 @@ export const Boutique = () => {
         )}
       </AnimatePresence>
 
-      <Checkout isOpen={isCheckoutOpen} onClose={() => setIsCheckoutOpen(false)} total={totalPrice} />
     </div>
   );
 };

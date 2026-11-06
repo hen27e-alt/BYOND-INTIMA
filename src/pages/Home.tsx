@@ -8,7 +8,7 @@ import { useCart } from '../contexts/CartContext';
 import { useAlert } from '../components/AlertModal';
 import { Ticket } from '../components/season/Ticket';
 import { boutiqueProducts } from '../data/boutique';
-import { BOX_IDS, BOX_DURATION_EN, CURRENT_SEASON, SUBSCRIPTION } from '../data/season';
+import { BOX_IDS, CURRENT_SEASON, NIGHT_BANDS, SUBSCRIPTION, boxDuration } from '../data/season';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -32,12 +32,6 @@ const daysUntil = (iso: string | null) => {
   return d >= 0 ? d : null;
 };
 
-/** Hours on the night axis, 18:00 → 06:00. Each box occupies a band that matches its real duration. */
-const NIGHT_BANDS: Record<string, { from: number; to: number }> = {
-  exp_spark: { from: 2, to: 4 },
-  exp_velvet: { from: 3, to: 7 },
-  exp_ecstasy: { from: 2, to: 12 },
-};
 const AXIS_HOURS = [18, 20, 22, 0, 2, 4];
 
 export const Home = () => {
@@ -231,7 +225,7 @@ export const Home = () => {
                     </div>
                     <div>
                       <h3 className="font-display text-6xl font-bold leading-[0.85] md:text-7xl">{box.name.replace(/^מארז /, '')}</h3>
-                      <p className="mt-2 text-sm font-bold text-spot">{he ? box.avgTime : BOX_DURATION_EN[box.id]}</p>
+                      <p className="mt-2 text-sm font-bold text-spot">{boxDuration(box.id, he)}</p>
                       <p className="mt-4 max-w-[46ch] text-lg leading-relaxed text-paper/85">{box.description}</p>
                     </div>
                     <ul className="border-t border-paper/40 text-base">
