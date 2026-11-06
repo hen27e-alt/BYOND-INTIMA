@@ -27,6 +27,7 @@
   --color-rule: var(--color-line);
   /* Value is set per theme in the base layer below; listed here so bg-surface exists. */
   --color-surface: #F8F4EC;
+  --color-gold: var(--color-champagne);
 }
 
 @layer base {
@@ -329,3 +330,20 @@
 .season-skin h1.font-serif, .season-skin h2.font-serif, .season-skin h3.font-serif {
   font-family: var(--font-display); font-weight: 700; line-height: 0.95; font-size: 2.5em;
 }
+
+/* ---------- Night (design study, /preview/night) ----------
+   The same tokens, with the light switched off. Unlayered so it wins over the
+   base theme. Champagne is the rare third colour: prices and value only. */
+:root { --color-champagne: #9A7A4C; }
+.theme-night {
+  --color-bg: #110E0D;
+  --color-text: #EFE6D8;
+  --color-accent: #D9361F;
+  --color-accent-light: #F0583C;
+  --color-surface: #1A1614;
+  --color-line: rgba(239, 230, 216, 0.16);
+  --color-champagne: #C9A66B;
+  color-scheme: dark;
+}
+/* Sections drawn "light on the dark room" keep that contrast at night: the room goes deeper, its type stays light. */
+.theme-night .bg-room { --color-bg: #EFE6D8; --color-paper: #EFE6D8; background-color: #0A0809; }
