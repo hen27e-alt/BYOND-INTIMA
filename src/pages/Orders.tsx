@@ -1,276 +1,179 @@
 import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Package, Calendar, CreditCard, ChevronRight, ShoppingBag, Loader2, ExternalLink, CheckCircle2, Clock, Truck } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ChevronDown } from 'lucide-react';
+import { collection, onSnapshot, orderBy, query, where, type Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
-import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { cn } from '../lib/utils';
 import { boutiqueProducts } from '../data/boutique';
+import { ORDER_STATUSES, statusOf } from '../data/orderStatus';
+import { cn } from '../lib/utils';
 
-interface OrderItem {
-  id: string;
-  name: string;
-  price: number;
-  quantity: number;
-  image?: string;
-}
+type Line = { id: string; name: string; price: number; quantity: number };
 
-interface Order {
+type Order = {
   id: string;
-  orderId: string;
-  totalAmount: number;
-  status: 'pending' | 'paid' | 'shipped' | 'delivered';
-  createdAt: Timestamp;
-  items: Record<string, { quantity: number; personalization?: any }>;
-  customerDetails: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    address: string;
-    city: string;
-  };
-}
+  totalAmount?: number;
+  shipping?: number;
+  status?: string;
+  createdAt?: Timestamp;
+  // New orders store an array; orders from the old checkout stored { [productId]: { quantity } }.
+  items?: Line[] | Record<string, { quantity: number }>;
+  customerDetails?: { firstName?: string; lastName?: string; address?: string; city?: string };
+};
+
+const linesOf = (o: Order): Line[] => {
+  if (Array.isArray(o.items)) return o.items;
+  return Object.entries(o.items ?? {}).map(([id, d]) => {
+    const p = boutiqueProducts.find((x) => x.id === id);
+    return { id, name: p?.name ?? id, price: p?.price ?? 0, quantity: d.quantity };
+  });
+};
+
+/** Progress along the order's journey, drawn as a ruled track with the reached steps in spot. */
+const Track = ({ status, he }: { status?: string; he: boolean }) => {
+  const steps = ORDER_STATUSES.filter((s) => s.id !== 'cancelled' && s.id !== 'paid');
+  const current = statusOf(status);
+  if (current.id === 'cancelled') return <p className="font-bold text-spot">{he ? 'ההזמנה בוטלה.' : 'This order was cancelled.'}</p>;
+  const reached = current.id === 'paid' ? 0 : steps.findIndex((s) => s.id === current.id);
+  return (
+    <ol className="grid grid-cols-4 gap-1" aria-label={he ? 'מצב ההזמנה' : 'Order progress'}>
+      {steps.map((s, i) => (
+        <li key={s.id} aria-current={i === reached ? 'step' : undefined}>
+          <span className={cn('block h-2', i <= reached ? 'bg-spot' : 'bg-ink/15')} />
+          <span className={cn('mt-1.5 block text-xs font-bold md:text-sm', i <= reached ? 'text-ink' : 'text-ink/50')}>{he ? s.he : s.en}</span>
+        </li>
+      ))}
+    </ol>
+  );
+};
 
 export const Orders = () => {
-  const { user } = useFirebase();
+  const { user, loading: authLoading } = useFirebase();
   const { language } = useLanguage();
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const he = language === 'he';
+  const tx = (h: string, e: string) => (he ? h : e);
+  const [orders, setOrders] = useState<Order[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [open, setOpen] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user) {
-      setIsLoading(false);
-      return;
-    }
-
-    const q = query(
-      collection(db, 'orders'),
-      where('userId', '==', user.uid),
-      orderBy('createdAt', 'desc')
+    if (!user) return;
+    return onSnapshot(
+      query(collection(db, 'orders'), where('userId', '==', user.uid), orderBy('createdAt', 'desc')),
+      (snap) => setOrders(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Order)),
+      () => {
+        setFailed(true);
+        setOrders([]);
+      }
     );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const ordersData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Order[];
-      setOrders(ordersData);
-      setIsLoading(false);
-    }, (error) => {
-      console.error("Error fetching orders:", error);
-      setIsLoading(false);
-    });
-
-    return () => unsubscribe();
   }, [user]);
 
-  const getStatusColor = (status: Order['status']) => {
-    switch (status) {
-      case 'paid': return 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
-      case 'shipped': return 'text-blue-500 bg-blue-500/10 border-blue-500/20';
-      case 'delivered': return 'text-brand-gold bg-brand-gold/10 border-brand-gold/20';
-      default: return 'text-amber-500 bg-amber-500/10 border-amber-500/20';
-    }
-  };
+  const date = (o: Order) =>
+    o.createdAt?.toDate?.().toLocaleDateString(he ? 'he-IL' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) ?? '';
 
-  const getStatusIcon = (status: Order['status']) => {
-    switch (status) {
-      case 'paid': return <CheckCircle2 size={14} />;
-      case 'shipped': return <Truck size={14} />;
-      case 'delivered': return <Package size={14} />;
-      default: return <Clock size={14} />;
-    }
-  };
-
-  const formatDate = (timestamp: Timestamp) => {
-    if (!timestamp) return '';
-    const date = timestamp.toDate();
-    return date.toLocaleDateString(language === 'he' ? 'he-IL' : 'en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-brand-black flex items-center justify-center">
-        <Loader2 className="text-brand-gold animate-spin" size={48} />
+  let body: React.ReactNode;
+  if (authLoading || (user && orders === null)) {
+    body = <p className="py-20 text-center text-lg">{tx('טוען את ההזמנות...', 'Loading your orders...')}</p>;
+  } else if (!user) {
+    body = (
+      <div className="py-16">
+        <p className="text-xl">{tx('כדי לראות הזמנות צריך להתחבר.', 'Sign in to see your orders.')}</p>
+        <Link to="/login" className="mt-6 inline-block bg-ink px-6 py-3.5 text-lg font-bold text-paper hover:bg-spot">
+          {tx('להתחבר', 'Sign in')}
+        </Link>
       </div>
+    );
+  } else if (failed) {
+    body = <p className="py-16 text-lg font-bold text-spot">{tx('לא הצלחנו לטעון את ההזמנות. נסו לרענן את הדף.', "We couldn't load your orders. Try refreshing the page.")}</p>;
+  } else if (!orders?.length) {
+    body = (
+      <div className="py-16">
+        <p className="font-display text-5xl font-bold leading-none">{tx('עוד אין הזמנות.', 'No orders yet.')}</p>
+        <p className="mt-3 text-lg text-ink/75">{tx('כשתזמינו מארז או מוצר מהבוטיק, הוא יופיע כאן עם מצב המשלוח.', 'When you order a box or a boutique item it will show up here with its delivery status.')}</p>
+        <div className="mt-6 flex flex-wrap gap-x-8 gap-y-3">
+          <Link to="/experience" className="bg-ink px-6 py-3.5 text-lg font-bold text-paper hover:bg-spot">
+            {tx('למארזים', 'See the boxes')}
+          </Link>
+          <Link to="/boutique" className="self-center text-lg font-bold underline underline-offset-4 hover:text-spot">
+            {tx('לבוטיק', 'To the boutique')}
+          </Link>
+        </div>
+      </div>
+    );
+  } else {
+    body = (
+      <ul>
+        {orders.map((o) => {
+          const lines = linesOf(o);
+          const isOpen = open === o.id;
+          const c = o.customerDetails ?? {};
+          return (
+            <li key={o.id} className="border-b-[3px] border-ink py-6">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+                <h2 className="font-display text-4xl font-bold leading-none">
+                  <bdi dir="ltr" className="tabular-nums">
+                    #{o.id.slice(0, 8).toUpperCase()}
+                  </bdi>
+                </h2>
+                <p className="text-base text-ink/70">{date(o)}</p>
+                <p className="ms-auto font-display text-4xl font-bold leading-none tabular-nums">₪{o.totalAmount ?? 0}</p>
+              </div>
+              <p className="mt-2 text-base">
+                {lines.map((l) => `${l.name}${l.quantity > 1 ? ` × ${l.quantity}` : ''}`).join(' · ')}
+              </p>
+              <div className="mt-5">
+                <Track status={o.status} he={he} />
+              </div>
+              <button
+                onClick={() => setOpen(isOpen ? null : o.id)}
+                aria-expanded={isOpen}
+                className="mt-4 flex items-center gap-1 text-sm font-bold hover:text-spot"
+              >
+                {tx('פרטי ההזמנה', 'Order details')}
+                <ChevronDown size={16} className={cn('transition-transform', isOpen && 'rotate-180')} />
+              </button>
+              {isOpen && (
+                <div className="mt-3 grid gap-6 border-t border-ink pt-4 md:grid-cols-2">
+                  <ul>
+                    {lines.map((l) => (
+                      <li key={l.id} className="flex justify-between gap-4 border-b border-rule py-2">
+                        <span>
+                          {l.name} <span className="text-ink/60">× {l.quantity}</span>
+                        </span>
+                        <span className="tabular-nums">₪{l.price * l.quantity}</span>
+                      </li>
+                    ))}
+                    {typeof o.shipping === 'number' && (
+                      <li className="flex justify-between gap-4 py-2 text-ink/70">
+                        <span>{tx('משלוח', 'Shipping')}</span>
+                        <span className="tabular-nums">{o.shipping === 0 ? tx('חינם', 'Free') : `₪${o.shipping}`}</span>
+                      </li>
+                    )}
+                  </ul>
+                  <div>
+                    <h3 className="text-sm font-bold">{tx('נשלח אל', 'Shipping to')}</h3>
+                    <p className="mt-1">{[c.firstName, c.lastName].filter(Boolean).join(' ')}</p>
+                    <p>{[c.address, c.city].filter(Boolean).join(', ')}</p>
+                    <p className="mt-3 text-sm text-ink/70">{he ? statusOf(o.status).customerHe : statusOf(o.status).customerEn}</p>
+                  </div>
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
     );
   }
 
   return (
-    <div className="min-h-screen bg-brand-black text-white pt-32 pb-20 px-6">
-      <div className="max-w-4xl mx-auto">
-        <header className="mb-12 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center gap-2 mb-4"
-          >
-            <ShoppingBag className="text-brand-gold" size={24} />
-            <span className="text-brand-gold tracking-[0.3em] uppercase text-sm font-medium">
-              Your Journey
-            </span>
-          </motion.div>
-          <h1 className="text-4xl md:text-6xl font-serif mb-4">
-            {language === 'he' ? 'היסטוריית הזמנות' : 'Order History'}
-          </h1>
-          <p className="text-white/40 max-w-lg mx-auto font-light">
-            {language === 'he' 
-              ? 'עקבו אחר הרכישות שלכם וראו את הסטטוס של כל משלוח.'
-              : 'Track your purchases and see the status of each delivery.'}
-          </p>
+    <div className="min-h-screen bg-paper pt-16 text-ink md:pt-20">
+      <div className="mx-auto max-w-[1000px] px-4 pb-24 pt-10 md:px-8 lg:pt-16">
+        <header className="border-b-[3px] border-ink pb-6">
+          <h1 className="font-display text-[clamp(4rem,12vw,8rem)] font-bold leading-[0.82]">{tx('ההזמנות שלי', 'My orders')}</h1>
+          <p className="mt-3 text-lg text-ink/75">{tx('כל מה שהזמנתם, ואיפה כל משלוח עומד.', 'Everything you ordered, and where each delivery stands.')}</p>
         </header>
-
-        {!user ? (
-          <div className="text-center py-20 bg-white/5 rounded-3xl border border-white/10">
-            <p className="text-white/60 mb-6">
-              {language === 'he' ? 'אנא התחברו כדי לצפות בהיסטוריית ההזמנות שלכם.' : 'Please log in to view your order history.'}
-            </p>
-          </div>
-        ) : orders.length === 0 ? (
-          <div className="text-center py-20 bg-white/5 rounded-3xl border border-white/10 space-y-6">
-            <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto">
-              <ShoppingBag className="text-white/20" size={40} />
-            </div>
-            <p className="text-white/40 font-serif italic">
-              {language === 'he' ? 'עדיין לא ביצעתם הזמנות...' : 'No orders yet...'}
-            </p>
-            <button className="bg-brand-gold text-brand-black px-8 py-3 rounded-full font-bold hover:bg-white transition-colors">
-              {language === 'he' ? 'לבוטיק' : 'To Boutique'}
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {orders.map((order, index) => (
-              <motion.div
-                key={order.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden hover:border-brand-gold/30 transition-all group"
-              >
-                <div className="p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
-                  <div className="flex items-center gap-6">
-                    <div className="w-16 h-16 bg-brand-gold/10 rounded-2xl flex items-center justify-center shrink-0">
-                      <Package className="text-brand-gold" size={32} />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-3 mb-1">
-                        <h3 className="text-xl font-serif">#{order.orderId}</h3>
-                        <span className={cn(
-                          "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border flex items-center gap-1.5",
-                          getStatusColor(order.status)
-                        )}>
-                          {getStatusIcon(order.status)}
-                          {order.status}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-4 text-white/40 text-sm">
-                        <div className="flex items-center gap-1">
-                          <Calendar size={14} />
-                          {formatDate(order.createdAt)}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <CreditCard size={14} />
-                          ₪{order.totalAmount}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <button 
-                    onClick={() => setSelectedOrder(selectedOrder?.id === order.id ? null : order)}
-                    className="flex items-center gap-2 text-brand-gold hover:text-white transition-colors text-sm font-bold uppercase tracking-widest"
-                  >
-                    {language === 'he' ? 'פרטי הזמנה' : 'Order Details'}
-                    <ChevronRight size={16} className={cn("transition-transform", selectedOrder?.id === order.id && "rotate-90")} />
-                  </button>
-                </div>
-
-                <AnimatePresence>
-                  {selectedOrder?.id === order.id && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden border-t border-white/10"
-                    >
-                      <div className="p-8 bg-white/[0.02] grid grid-cols-1 md:grid-cols-2 gap-12">
-                        {/* Items List */}
-                        <div className="space-y-4">
-                          <h4 className="text-xs font-bold uppercase tracking-widest text-brand-gold mb-4">
-                            {language === 'he' ? 'פריטים' : 'Items'}
-                          </h4>
-                          {Object.entries(order.items).map(([id, details]: [string, any]) => {
-                            const product = boutiqueProducts.find(p => p.id === id);
-                            return (
-                              <div key={id} className="flex items-center justify-between py-3 border-b border-white/5 last:border-0">
-                                <div className="flex items-center gap-4">
-                                  <div className="w-12 h-12 bg-white/5 rounded-xl overflow-hidden shrink-0">
-                                    {product?.image ? (
-                                      <img src={product.image} alt={product.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                                    ) : (
-                                      <div className="w-full h-full flex items-center justify-center text-white/20">
-                                        <Package size={20} />
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div>
-                                    <p className="text-sm text-white font-medium">{product?.name || id}</p>
-                                    <p className="text-[10px] text-white/40 uppercase tracking-widest">{details.quantity}x ₪{product?.price || '---'}</p>
-                                  </div>
-                                </div>
-                                <span className="text-sm font-serif text-brand-gold">₪{(product?.price || 0) * details.quantity}</span>
-                              </div>
-                            );
-                          })}
-                          <div className="pt-4 flex justify-between items-center font-serif text-lg">
-                            <span className="text-white/40">{language === 'he' ? 'סה"כ:' : 'Total:'}</span>
-                            <span className="text-brand-gold">₪{order.totalAmount}</span>
-                          </div>
-                        </div>
-
-                        {/* Shipping Info */}
-                        <div className="space-y-6">
-                          <div>
-                            <h4 className="text-xs font-bold uppercase tracking-widest text-brand-gold mb-4">
-                              {language === 'he' ? 'כתובת למשלוח' : 'Shipping Address'}
-                            </h4>
-                            <div className="text-sm text-white/60 space-y-1">
-                              <p className="text-white font-medium">{order.customerDetails.firstName} {order.customerDetails.lastName}</p>
-                              <p>{order.customerDetails.address}</p>
-                              <p>{order.customerDetails.city}</p>
-                              <p>{order.customerDetails.email}</p>
-                            </div>
-                          </div>
-
-                          <div className="p-4 bg-brand-gold/5 rounded-2xl border border-brand-gold/10">
-                            <div className="flex items-center gap-3 mb-2">
-                              <Truck size={18} className="text-brand-gold" />
-                              <span className="text-xs font-bold uppercase tracking-widest">
-                                {language === 'he' ? 'סטטוס משלוח' : 'Shipping Status'}
-                              </span>
-                            </div>
-                            <p className="text-sm text-white/80">
-                              {order.status === 'paid' 
-                                ? (language === 'he' ? 'ההזמנה בטיפול ותשלח בקרוב' : 'Order is being processed and will ship soon')
-                                : (language === 'he' ? 'החבילה בדרך אליכם' : 'Package is on its way')}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            ))}
-          </div>
-        )}
+        {body}
       </div>
     </div>
   );

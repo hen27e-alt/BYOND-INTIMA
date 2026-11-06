@@ -1,179 +1,143 @@
 import React, { useEffect } from 'react';
-import { motion } from 'motion/react';
-import { CheckCircle, Package, ArrowRight, ShoppingBag, Calendar, MapPin, Phone } from 'lucide-react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
-import { EditableText } from '../components/EditableText';
-import { db } from '../firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { motion, useReducedMotion } from 'motion/react';
 import { useCart } from '../contexts/CartContext';
+import { useFirebase } from '../contexts/FirebaseContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
+type Item = { id: string; name: string; price: number; quantity: number; personalization?: { name?: string; dedication?: string } | null };
+type OrderData = { orderId?: string; customerName?: string; total?: number; address?: string; phone?: string; items?: Item[] };
+
+/** The stub the customer keeps: a printed receipt in the season world. */
 export const OrderConfirmation = () => {
   const location = useLocation();
-  const [searchParams] = useSearchParams();
+  const [params] = useSearchParams();
   const { clearCart } = useCart();
-  
-  const orderIdFromUrl = searchParams.get('orderId');
-  const isSuccess = searchParams.get('success') === 'true';
+  const { user } = useFirebase();
+  const { language } = useLanguage();
+  const reduce = useReducedMotion();
+  const he = language === 'he';
+  const tx = (h: string, e: string) => (he ? h : e);
 
+  const paidOnline = params.get('success') === 'true';
+  const data: OrderData = location.state?.orderData ?? {};
+  const orderId = data.orderId ?? params.get('orderId') ?? undefined;
+  const items = data.items ?? [];
+  const firstName = data.customerName?.trim().split(' ')[0];
+
+  // Returning from Stripe: the cart was kept in case payment failed, so clear it now.
   useEffect(() => {
-    if (isSuccess && orderIdFromUrl) {
-      // Update order status in Firestore
-      const updateOrderStatus = async () => {
-        try {
-          const orderRef = doc(db, 'orders', orderIdFromUrl);
-          await updateDoc(orderRef, {
-            status: 'paid'
-          });
-          console.log("Order status updated to paid:", orderIdFromUrl);
-          clearCart(); // Clear cart on success
-        } catch (error) {
-          console.error("Error updating order status:", error);
-        }
-      };
-      updateOrderStatus();
-    }
-  }, [isSuccess, orderIdFromUrl, clearCart]);
-  
-  const orderData = location.state?.orderData || {
-    orderId: orderIdFromUrl || 'BYD-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-    customerName: 'לקוח יקר',
-    total: '---',
-    address: 'נשלח למייל',
-    phone: 'נשלח למייל',
-    items: []
-  };
+    if (paidOnline) clearCart();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paidOnline]);
+
+  const steps = [
+    [tx('אישור במייל', 'Email confirmation'), tx('שלחנו אישור עם פרטי ההזמנה.', 'We sent a confirmation with the order details.')],
+    [tx('אריזה', 'Packing'), tx('אורזים הכול ביד, בקופסה דיסקרטית בלי סימון חיצוני.', 'Everything is packed by hand, in a discreet unmarked box.')],
+    [tx('משלוח', 'Delivery'), tx('בדרך כלל עד 5 ימי עסקים. נעדכן כשהחבילה יוצאת.', 'Usually within 5 business days. We will let you know when it ships.')],
+  ];
 
   return (
-    <div className="min-h-screen bg-[#F8F8F8] pt-32 pb-20 px-6" dir="rtl">
-      <div className="max-w-3xl mx-auto">
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-brand-black/5"
+    <div className="min-h-screen bg-paper px-4 pb-24 pt-28 text-ink md:px-8 md:pt-32">
+      <div className="mx-auto max-w-3xl">
+        <motion.div
+          initial={reduce ? false : { opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: [0.2, 0.8, 0.2, 1] }}
+          className="border-[3px] border-ink"
         >
-          {/* Header */}
-          <div className="bg-brand-black text-white p-12 text-center relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-20 opacity-10 pointer-events-none">
-              <CheckCircle size={300} className="text-brand-gold" />
-            </div>
-            
-            <motion.div
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.2 }}
-              className="relative z-10"
-            >
-              <div className="w-20 h-20 bg-brand-gold rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl">
-                <CheckCircle size={40} className="text-brand-black" />
-              </div>
-              <EditableText 
-                contentId="order_confirmation_title"
-                defaultText="ההזמנה בוצעה בהצלחה!"
-                as="h1"
-                className="text-4xl md:text-5xl font-serif font-black mb-4 italic"
-              />
-              <p className="text-white/60 text-lg">תודה רבה, {orderData.customerName}. ההזמנה שלך התקבלה ונמצאת בטיפול.</p>
-            </motion.div>
-          </div>
+          <header className="bg-ink px-6 py-10 text-paper md:px-10 md:py-14">
+            <p className="text-sm font-bold text-[var(--color-accent-light)]">{tx('ההזמנה התקבלה', 'Order received')}</p>
+            <h1 className="mt-2 font-display text-[clamp(3.5rem,11vw,7rem)] font-bold leading-[0.85]">
+              {firstName ? tx(`תודה, ${firstName}.`, `Thank you, ${firstName}.`) : tx('תודה.', 'Thank you.')}
+            </h1>
+            <p className="mt-4 max-w-[46ch] text-lg leading-relaxed text-paper/80">
+              {paidOnline
+                ? tx('התשלום עבר וההזמנה בדרך להכנה.', 'Payment went through and your order is being prepared.')
+                : tx('ההזמנה אצלנו. אם בחרתם בתשלום טלפוני, נתקשר תוך יום עסקים.', "We have your order. If you chose to pay by phone, we'll call within one business day.")}
+            </p>
+          </header>
 
-          {/* Order Details */}
-          <div className="p-12 space-y-12">
-            <div className="grid md:grid-cols-2 gap-8">
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 text-brand-black/40">
-                  <ShoppingBag size={18} />
-                  <span className="text-[10px] font-black uppercase tracking-widest">מספר הזמנה</span>
-                </div>
-                <p className="text-xl font-black">{orderData.orderId}</p>
-              </div>
-              
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 text-brand-black/40">
-                  <Calendar size={18} />
-                  <span className="text-[10px] font-black uppercase tracking-widest">תאריך הזמנה</span>
-                </div>
-                <p className="text-xl font-black">{new Date().toLocaleDateString('he-IL')}</p>
-              </div>
-            </div>
+          {/* Perforation between the stub and the receipt */}
+          <div aria-hidden="true" className="border-t-[3px] border-dashed border-ink" />
 
-            <div className="h-px bg-brand-black/5" />
+          <div className="px-6 py-8 md:px-10">
+            {orderId && (
+              <p className="flex items-baseline justify-between gap-4 border-b-[3px] border-ink pb-3">
+                <span className="text-sm font-bold">{tx('מספר הזמנה', 'Order number')}</span>
+                <bdi dir="ltr" className="font-display text-4xl font-bold leading-none tabular-nums text-spot">
+                  #{orderId.slice(0, 8).toUpperCase()}
+                </bdi>
+              </p>
+            )}
 
-            {/* Shipping Info */}
-            <div className="space-y-6">
-              <h3 className="text-xl font-serif font-black">פרטי משלוח</h3>
-              <div className="grid md:grid-cols-2 gap-8">
-                <div className="flex gap-4">
-                  <div className="w-10 h-10 bg-[#F8F8F8] rounded-xl flex items-center justify-center text-brand-gold shrink-0">
-                    <MapPin size={20} />
-                  </div>
+            {items.length > 0 && (
+              <ul className="mt-2">
+                {items.map((it) => (
+                  <li key={it.id} className="flex justify-between gap-4 border-b border-rule py-3 text-lg">
+                    <span>
+                      {it.name} <span className="text-ink/60">× {it.quantity}</span>
+                      {it.personalization?.name && <span className="block text-sm text-spot">{tx(`חריטה: ${it.personalization.name}`, `Engraving: ${it.personalization.name}`)}</span>}
+                    </span>
+                    <span className="tabular-nums">₪{it.price * it.quantity}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {typeof data.total === 'number' && (
+              <p className="flex items-baseline justify-between border-b-[3px] border-ink py-4">
+                <span className="text-lg font-bold">{tx('סה״כ', 'Total')}</span>
+                <span className="font-display text-5xl font-bold leading-none tabular-nums">₪{data.total}</span>
+              </p>
+            )}
+
+            {(data.address || data.phone) && (
+              <dl className="grid gap-4 border-b border-rule py-5 sm:grid-cols-2">
+                {data.address && (
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-brand-black/40 mb-1">כתובת למשלוח</p>
-                    <p className="font-bold text-brand-black/80">{orderData.address}</p>
+                    <dt className="text-sm font-bold">{tx('נשלח אל', 'Shipping to')}</dt>
+                    <dd className="mt-1 text-lg">{data.address}</dd>
                   </div>
-                </div>
-                
-                <div className="flex gap-4">
-                  <div className="w-10 h-10 bg-[#F8F8F8] rounded-xl flex items-center justify-center text-brand-gold shrink-0">
-                    <Phone size={20} />
-                  </div>
+                )}
+                {data.phone && (
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-brand-black/40 mb-1">מספר טלפון</p>
-                    <p className="font-bold text-brand-black/80">{orderData.phone}</p>
+                    <dt className="text-sm font-bold">{tx('טלפון', 'Phone')}</dt>
+                    <dd className="mt-1 text-lg" dir="ltr">
+                      <bdi>{data.phone}</bdi>
+                    </dd>
                   </div>
-                </div>
-              </div>
-            </div>
+                )}
+              </dl>
+            )}
 
-            <div className="h-px bg-brand-black/5" />
-
-            {/* Summary */}
-            <div className="space-y-6">
-              <h3 className="text-xl font-serif font-black">סיכום תשלום</h3>
-              <div className="bg-[#F8F8F8] rounded-2xl p-6 space-y-3">
-                <div className="flex justify-between text-sm font-medium text-brand-black/60">
-                  <span>סכום הזמנה</span>
-                  <span>₪{orderData.total}</span>
-                </div>
-                <div className="flex justify-between text-sm font-medium text-brand-black/60">
-                  <span>משלוח</span>
-                  <span>חינם</span>
-                </div>
-                <div className="h-px bg-brand-black/10 my-2" />
-                <div className="flex justify-between text-xl font-black">
-                  <span>סה"כ שולם</span>
-                  <span className="text-brand-gold">₪{orderData.total}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="pt-8 flex flex-col sm:flex-row gap-4">
-              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex-grow">
-                <Link 
-                  to="/decks"
-                  className="w-full py-5 bg-brand-black text-white text-xs font-black uppercase tracking-[0.3em] rounded-2xl hover:bg-brand-gold transition-all shadow-xl flex items-center justify-center gap-3"
-                >
-                  <ShoppingBag size={18} />
-                  המשך בקניות
-                </Link>
-              </motion.div>
-              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex-grow">
-                <Link 
-                  to="/dashboard"
-                  className="w-full py-5 bg-white text-brand-black border border-brand-black/10 text-xs font-black uppercase tracking-[0.3em] rounded-2xl hover:bg-[#F8F8F8] transition-all flex items-center justify-center gap-3"
-                >
-                  <Package size={18} />
-                  מעקב אחר הזמנה
-                </Link>
-              </motion.div>
-            </div>
+            <h2 className="mt-8 font-display text-4xl font-bold leading-none">{tx('מה עכשיו', 'What happens now')}</h2>
+            <ol className="mt-3">
+              {steps.map(([t, d], i) => (
+                <li key={t} className="grid grid-cols-[48px_1fr] gap-3 border-b border-rule py-4">
+                  <span className="font-display text-4xl font-bold leading-none text-spot tabular-nums">{String(i + 1).padStart(2, '0')}</span>
+                  <span>
+                    <span className="block text-lg font-bold">{t}</span>
+                    <span className="text-base text-ink/75">{d}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
           </div>
         </motion.div>
 
-        <div className="mt-12 text-center">
-          <p className="text-brand-black/40 text-sm font-medium">
-            שלחנו לך אישור הזמנה מפורט לכתובת המייל שלך.
-          </p>
+        <div className="mt-8 flex flex-wrap items-center gap-x-8 gap-y-4">
+          {user && (
+            <Link to="/orders" className="bg-ink px-6 py-3.5 text-lg font-bold text-paper hover:bg-spot">
+              {tx('ההזמנות שלי', 'My orders')}
+            </Link>
+          )}
+          <Link to="/boutique" className="text-lg font-bold underline underline-offset-4 hover:text-spot">
+            {tx('בחזרה לבוטיק', 'Back to the boutique')}
+          </Link>
+          <Link to="/" className="text-lg font-bold underline underline-offset-4 hover:text-spot">
+            {tx('לדף הבית', 'Home')}
+          </Link>
         </div>
       </div>
     </div>

@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
-import { motion } from 'motion/react';
-import { Shield, Scale, Eye, Accessibility, AlertTriangle, RefreshCcw, Copyright, ArrowRight } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Shield, Scale, Eye, Accessibility, AlertTriangle, RefreshCcw, Copyright } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { EditableText } from '../components/EditableText';
 
@@ -82,79 +81,79 @@ const sections = [
   }
 ];
 
+/** Read mode: every section on one page, with a sticky index that tracks where you are. */
 const Legal = () => {
-  const [activeSection, setActiveSection] = useState(sections[0].id);
+  const [active, setActive] = useState(sections[0].id);
+
+  useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    if (hash) document.getElementById(hash)?.scrollIntoView();
+    const io = new IntersectionObserver(
+      (entries) => {
+        const hit = entries.filter((e) => e.isIntersecting).sort((x, y) => x.boundingClientRect.top - y.boundingClientRect.top)[0];
+        if (hit) setActive(hit.target.id);
+      },
+      { rootMargin: '-20% 0px -65% 0px' }
+    );
+    sections.forEach((sec) => {
+      const el = document.getElementById(sec.id);
+      if (el) io.observe(el);
+    });
+    return () => io.disconnect();
+  }, []);
 
   return (
-    <div className="min-h-screen bg-brand-cream pt-32 pb-20 px-6" dir="rtl">
-      <div className="max-w-6xl mx-auto">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-16"
-        >
-          <EditableText 
-            contentId="legal_title"
-            defaultText="מידע משפטי ותנאים"
-            as="h1"
-            className="text-5xl font-serif mb-4"
-          />
-          <p className="text-brand-black/50 max-w-2xl mx-auto">
-            כאן תוכלו למצוא את כל המידע המשפטי, תנאי השימוש ומדיניות האתר שלנו. אנו מחויבים לשקיפות והגנה על זכויותיכם.
+    <div className="bg-paper pt-16 text-ink md:pt-20" dir="rtl">
+      <div className="mx-auto max-w-[1200px] px-4 pb-24 pt-12 md:px-8 lg:pt-20">
+        <header className="border-b-[3px] border-ink pb-8">
+          <EditableText contentId="legal_title" defaultText="תקנון ומדיניות" as="h1" className="font-display text-[clamp(4rem,11vw,9rem)] font-bold leading-[0.82]" />
+          <p className="mt-4 max-w-[60ch] text-lg leading-relaxed text-ink/80">
+            תנאי השימוש, הפרטיות, הנגישות והחזרות, במקום אחד. לשאלות אפשר לכתוב ל־
+            <a href={`mailto:${BRANDING.email}`} className="font-bold underline underline-offset-4 hover:text-spot" dir="ltr">
+              {BRANDING.email}
+            </a>
           </p>
-        </motion.div>
+        </header>
 
-        <div className="grid md:grid-cols-4 gap-8">
-          {/* Sidebar Navigation */}
-          <div className="md:col-span-1 space-y-2">
-            {sections.map((section) => (
-              <button
-                key={section.id}
-                onClick={() => setActiveSection(section.id)}
-                className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl transition-all text-right ${
-                  activeSection === section.id
-                    ? 'bg-brand-black text-white shadow-lg shadow-brand-black/20'
-                    : 'bg-white/50 text-brand-black/60 hover:bg-white'
-                }`}
-              >
-                <section.icon size={18} className={activeSection === section.id ? 'text-brand-gold' : ''} />
-                <span className="text-sm font-medium">{section.title}</span>
-              </button>
-            ))}
-          </div>
+        <div className="grid gap-10 pt-8 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-16">
+          <nav aria-label="פרקים" className="lg:sticky lg:top-28 lg:self-start">
+            <ol className="flex gap-x-5 gap-y-1 overflow-x-auto border-b border-ink pb-3 lg:block lg:border-b-0 lg:pb-0">
+              {sections.map((sec, i) => (
+                <li key={sec.id} className="shrink-0 lg:border-b lg:border-rule">
+                  <a
+                    href={`#${sec.id}`}
+                    aria-current={active === sec.id ? 'location' : undefined}
+                    className={`flex items-baseline gap-2 py-2 text-base font-bold transition-colors ${active === sec.id ? 'text-spot' : 'hover:text-spot'}`}
+                  >
+                    <span className="tabular-nums text-sm">{String(i + 1).padStart(2, '0')}</span>
+                    {sec.title}
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </nav>
 
-          {/* Content Area */}
-          <div className="md:col-span-3">
-            <motion.div
-              key={activeSection}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="bg-white p-12 rounded-[2.5rem] shadow-sm border border-brand-gold/10 min-h-[500px]"
-            >
-              {sections.find(s => s.id === activeSection) && (
-                <>
-                  <div className="flex items-center gap-4 mb-8">
-                    <div className="w-12 h-12 rounded-2xl bg-brand-gold/10 flex items-center justify-center text-brand-gold">
-                      {React.createElement(sections.find(s => s.id === activeSection)!.icon, { size: 24 })}
-                    </div>
-                    <h2 className="text-3xl font-serif">{sections.find(s => s.id === activeSection)!.title}</h2>
+          <div>
+            {sections.map((sec, i) => {
+              const lines = sec.content.split(/\n/).map((l) => l.trim()).filter(Boolean);
+              return (
+                <section key={sec.id} id={sec.id} className="scroll-mt-28 border-t-[3px] border-ink pb-12 pt-4 first:border-t-0 first:pt-0">
+                  <h2 className="flex items-baseline gap-3 font-display text-5xl font-bold leading-none">
+                    <span className="text-spot tabular-nums">{String(i + 1).padStart(2, '0')}</span>
+                    {sec.title}
+                  </h2>
+                  <div className="mt-5 max-w-[68ch] space-y-3 text-lg leading-relaxed text-ink/85">
+                    {lines.map((l) => (
+                      <p key={l}>{l}</p>
+                    ))}
                   </div>
-                  <div className="prose prose-brand max-w-none text-brand-black/70 leading-relaxed whitespace-pre-line">
-                    {sections.find(s => s.id === activeSection)!.content}
-                  </div>
-                </>
-              )}
-            </motion.div>
+                </section>
+              );
+            })}
+            <Link to="/contact" className="inline-block bg-ink px-6 py-3.5 text-lg font-bold text-paper hover:bg-spot">
+              שאלה? לכתוב לנו
+            </Link>
           </div>
-        </div>
-
-        <div className="mt-16 text-center">
-          <Link 
-            to="/" 
-            className="inline-flex items-center gap-2 text-brand-gold hover:text-brand-black transition-colors font-medium"
-          >
-            חזרה לדף הבית <ArrowRight size={18} />
-          </Link>
         </div>
       </div>
     </div>

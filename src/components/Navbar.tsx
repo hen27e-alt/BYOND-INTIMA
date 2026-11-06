@@ -9,7 +9,7 @@ import { useEditMode } from '../components/EditableText';
 import { cn } from '../lib/utils';
 import { SearchModal } from './SearchModal';
 import { NotificationCenter } from './NotificationCenter';
-import { CURRENT_SEASON } from '../data/season';
+import { useSeasonSettings } from '../lib/catalogue';
 
 const LANGUAGES = [
   { code: 'he', name: 'עברית' },
@@ -32,6 +32,7 @@ export const Navbar = () => {
   const { user, profile, logout } = useFirebase();
   const { cartCount } = useCart();
   const { language, setLanguage } = useLanguage();
+  const { seasonNumber } = useSeasonSettings();
   const { isEditMode, setIsEditMode, isAdmin } = useEditMode();
   const location = useLocation();
   const navigate = useNavigate();
@@ -72,7 +73,7 @@ export const Navbar = () => {
           <Link to="/" className="flex items-baseline gap-3 text-ink" aria-label="Byond Intima">
             <span className="font-display text-[34px] font-bold leading-none md:text-[42px]">BYOND INTIMA</span>
             <span className="hidden text-xs font-bold text-ink/70 xl:inline">
-              {he ? `עונה ${pad(CURRENT_SEASON.number)}` : `Season ${pad(CURRENT_SEASON.number)}`}
+              {he ? `עונה ${pad(seasonNumber)}` : `Season ${pad(seasonNumber)}`}
             </span>
           </Link>
         </div>

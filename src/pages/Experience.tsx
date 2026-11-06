@@ -6,10 +6,10 @@ import { useCart } from '../contexts/CartContext';
 import { useAlert } from '../components/AlertModal';
 import { EditableImage } from '../components/EditableImage';
 import { Ticket } from '../components/season/Ticket';
-import { boutiqueProducts } from '../data/boutique';
-import { BOX_IDS, NIGHT_BANDS, SUBSCRIPTION, bandHour, boxDuration } from '../data/season';
+import { BOX_IDS, NIGHT_BANDS, bandHour, boxDuration } from '../data/season';
+import { type Product, memberPriceFor, useCatalogue, useSeasonSettings, visible } from '../lib/catalogue';
 
-type Box = (typeof boutiqueProducts)[number] & {
+type Box = Product & {
   avgTime?: string;
   hasIntimateTasks?: boolean;
   hasCookingKit?: boolean;
@@ -36,8 +36,9 @@ export const Experience = () => {
   const he = language === 'he';
   const tx = (h: string, e: string) => (he ? h : e);
 
-  const boxes = BOX_IDS.map((id) => boutiqueProducts.find((p) => p.id === id)).filter(Boolean) as Box[];
-  const discount = SUBSCRIPTION.memberDiscountPercent;
+  const { products } = useCatalogue();
+  const { memberDiscountPercent: discount } = useSeasonSettings();
+  const boxes = BOX_IDS.map((id) => products.find((p) => p.id === id)).filter((p): p is Box => Boolean(p) && visible(p as Box));
 
   const addBox = (box: Box) => {
     addToCart(box.id);
@@ -158,10 +159,14 @@ export const Experience = () => {
                   </ul>
 
                   <div className="mt-8 flex flex-wrap items-center gap-x-8 gap-y-4">
-                    <Ticket label={tx('להוסיף לסל', 'Add to cart')} stub={`₪${box.price}`} tone={i === 1 ? 'spot' : 'ink'} onClick={() => addBox(box)} />
-                    {discount !== null && (
+                    {box.soldOut ? (
+                      <p className="border-[3px] border-dashed border-ink px-6 py-4 text-lg font-bold">{tx('אזל מהמלאי, יחזור בקרוב', 'Sold out, back soon')}</p>
+                    ) : (
+                      <Ticket label={tx('להוסיף לסל', 'Add to cart')} stub={`₪${box.price}`} tone={i === 1 ? 'spot' : 'ink'} onClick={() => addBox(box)} />
+                    )}
+                    {memberPriceFor(box.price, discount) !== null && (
                       <p className="text-base">
-                        {tx('למנויים', 'Members')}: <strong className="text-spot">₪{Math.round(box.price * (1 - discount / 100))}</strong>
+                        {tx('למנויים', 'Members')}: <strong className="text-spot">₪{memberPriceFor(box.price, discount)}</strong>
                       </p>
                     )}
                   </div>

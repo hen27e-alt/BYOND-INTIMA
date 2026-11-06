@@ -1,263 +1,204 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
-import { Lock, ArrowRight, Sparkles, Mail, User, LogIn, Instagram } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useFirebase } from '../contexts/FirebaseContext';
-import { EditableText } from '../components/EditableText';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useSeasonSettings } from '../lib/catalogue';
 import { cn } from '../lib/utils';
 
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/** Firebase error codes in words a person can act on. */
+const authMessage = (code: string | undefined, he: boolean) => {
+  const m: Record<string, [string, string]> = {
+    'auth/invalid-credential': ['האימייל או הסיסמה לא נכונים.', 'Wrong email or password.'],
+    'auth/wrong-password': ['האימייל או הסיסמה לא נכונים.', 'Wrong email or password.'],
+    'auth/user-not-found': ['אין חשבון עם האימייל הזה. אפשר להירשם.', 'No account with this email. You can sign up.'],
+    'auth/email-already-in-use': ['כבר יש חשבון עם האימייל הזה. נסו להתחבר.', 'There is already an account with this email. Try signing in.'],
+    'auth/invalid-email': ['כתובת האימייל לא תקינה.', 'That email address is not valid.'],
+    'auth/too-many-requests': ['יותר מדי ניסיונות. חכו כמה דקות ונסו שוב.', 'Too many attempts. Wait a few minutes and try again.'],
+    'auth/popup-blocked': ['הדפדפן חסם את חלון ההתחברות. אפשרו חלונות קופצים ונסו שוב.', 'The browser blocked the sign-in window. Allow pop-ups and try again.'],
+    'auth/popup-closed-by-user': ['חלון ההתחברות נסגר לפני שהסתיים.', 'The sign-in window was closed before finishing.'],
+    'auth/unauthorized-domain': ['הכתובת הזו עוד לא מורשית להתחברות. צריך להוסיף אותה ב־Firebase.', 'This address is not yet allowed to sign in. It needs to be added in Firebase.'],
+    'auth/network-request-failed': ['אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב.', 'No connection. Check your internet and try again.'],
+  };
+  const hit = code ? m[code] : undefined;
+  return hit ? hit[he ? 0 : 1] : he ? 'ההתחברות לא הצליחה. נסו שוב.' : 'Sign-in did not work. Please try again.';
+};
+
+const passwordProblem = (p: string, he: boolean) => {
+  if (p.length < 8) return he ? 'לפחות 8 תווים.' : 'At least 8 characters.';
+  if (!/[0-9]/.test(p)) return he ? 'צריך לפחות ספרה אחת.' : 'Needs at least one number.';
+  return null;
+};
+
 export const Login = () => {
-  const [isRegistering, setIsRegistering] = useState(false);
+  const { signIn, signInEmail, signUpEmail } = useFirebase();
+  const { language } = useLanguage();
+  const { seasonNumber } = useSeasonSettings();
+  const navigate = useNavigate();
+  const he = language === 'he';
+  const tx = (h: string, e: string) => (he ? h : e);
+
+  const [mode, setMode] = useState<'in' | 'up'>('in');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-  
-  const { signIn, signInApple, signInEmail, signInAnonymous, signUpEmail } = useFirebase();
-  const navigate = useNavigate();
+  const [pwError, setPwError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  const validatePassword = (pass: string) => {
-    if (pass.length < 8) return 'הסיסמה חייבת להכיל לפחות 8 תווים';
-    if (!/[A-Z]/.test(pass)) return 'הסיסמה חייבת להכיל לפחות אות גדולה אחת';
-    if (!/[0-9]/.test(pass)) return 'הסיסמה חייבת להכיל לפחות מספר אחד';
-    if (!/[!@#$%^&*]/.test(pass)) return 'הסיסמה חייבת להכיל לפחות תו מיוחד אחד (!@#$%^&*)';
-    return null;
-  };
+  const done = () => navigate('/dashboard', { replace: true });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setPasswordError(null);
-
-    if (isRegistering) {
-      const pError = validatePassword(password);
-      if (pError) {
-        setPasswordError(pError);
-        return;
-      }
+    if (mode === 'up') {
+      const p = passwordProblem(password, he);
+      setPwError(p);
+      if (p) return;
     }
-
-    setIsLoading(true);
-
+    setBusy(true);
     try {
-      if (isRegistering) {
-        await signUpEmail(email, password, name);
-      } else {
-        await signInEmail(email, password);
-      }
-      navigate('/dashboard', { replace: true });
-    } catch (err: any) {
-      setError(err.message || 'אירעה שגיאה בתהליך ההתחברות');
+      if (mode === 'up') await signUpEmail(email, password, name);
+      else await signInEmail(email, password);
+      done();
+    } catch (err) {
+      setError(authMessage((err as { code?: string })?.code, he));
     } finally {
-      setIsLoading(false);
+      setBusy(false);
     }
   };
 
-  const handleGoogleSignIn = async () => {
+  const google = async () => {
     setError(null);
-    setIsLoading(true);
+    setBusy(true);
     try {
       await signIn();
-      navigate('/dashboard', { replace: true });
-    } catch (err: any) {
-      console.error("Google Sign In Error:", err);
-      if (err.code === 'auth/popup-blocked') {
-        setError('הדפדפן חסם את חלון ההתחברות. אנא אפשרו חלונות קופצים (Popups) ונסו שוב.');
-      } else if (err.code === 'auth/unauthorized-domain') {
-        setError('דומיין זה אינו מורשה להתחברות. אנא פנו למנהל האתר.');
-      } else {
-        setError(err.message || 'אירעה שגיאה בהתחברות עם Google');
-      }
+      done();
+    } catch (err) {
+      setError(authMessage((err as { code?: string })?.code, he));
     } finally {
-      setIsLoading(false);
+      setBusy(false);
     }
   };
 
-  const handleAppleSignIn = async () => {
-    setError(null);
-    setIsLoading(true);
-    try {
-      await signInApple();
-      navigate('/dashboard', { replace: true });
-    } catch (err: any) {
-      console.error("Apple Sign In Error:", err);
-      if (err.code === 'auth/popup-blocked') {
-        setError('הדפדפן חסם את חלון ההתחברות. אנא אפשרו חלונות קופצים (Popups) ונסו שוב.');
-      } else {
-        setError(err.message || 'אירעה שגיאה בהתחברות עם Apple');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleAnonymousSignIn = async () => {
-    setError(null);
-    setIsLoading(true);
-    try {
-      await signInAnonymous();
-      navigate('/dashboard', { replace: true });
-    } catch (err: any) {
-      console.error("Anonymous Sign In Error:", err);
-      setError(err.message || 'אירעה שגיאה בהתחברות אנונימית');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const input = 'w-full border-2 border-ink bg-paper px-4 py-3.5 text-lg text-ink placeholder:text-ink/45 focus:border-spot focus:outline-none';
 
   return (
-    <div className="min-h-screen bg-brand-black flex items-center justify-center px-6 relative overflow-hidden">
-      {/* Background Elements */}
-      <div className="absolute inset-0 opacity-20">
-        <img 
-          src="https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&q=80&w=2000" 
-          alt="Atmosphere" 
-          className="w-full h-full object-cover grayscale"
-          referrerPolicy="no-referrer"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-brand-black via-transparent to-brand-black" />
-      </div>
+    <div className="grid min-h-screen bg-paper pt-16 text-ink md:pt-20 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+      {/* The room: what waits on the other side of the door */}
+      <aside className="flex flex-col justify-end bg-room px-4 py-12 text-paper md:px-8 lg:px-14 lg:py-20">
+        <p className="font-display text-[clamp(7rem,20vw,15rem)] font-bold leading-[0.75] text-spot">{pad(seasonNumber)}</p>
+        <h2 className="mt-4 font-display text-5xl font-bold leading-[0.9] md:text-6xl">{tx('המקום שלכם', 'Your place')}</h2>
+        <p className="mt-4 max-w-[40ch] text-lg leading-relaxed text-paper/75">
+          {tx(
+            'הערבים של העונה, היומן הזוגי, ההזמנות והמשחקים. הכול שמור כאן, רק לשניכם.',
+            "The season's evenings, your shared journal, your orders and games. All kept here, just for the two of you."
+          )}
+        </p>
+      </aside>
 
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 1 }}
-        className="w-full max-w-md z-10"
-      >
-        <div className="text-center mb-12">
-          <EditableText 
-            contentId="login_title"
-            defaultText="BYOND INTIMA"
-            as="h1"
-            className="text-4xl md:text-5xl font-serif font-light tracking-[0.2em] text-white mb-4"
-          />
-          <div className="w-12 h-px bg-brand-gold mx-auto mb-8" />
-          <p className="text-white/40 font-serif italic tracking-wide">
-            {isRegistering ? 'הצטרפו למסע הזוגי שלכם' : 'הכניסה למרחב הפרטי שלכם'}
+      <main className="flex items-center px-4 py-12 md:px-8 lg:px-14">
+        <div className="w-full max-w-md">
+          <div role="tablist" aria-label={tx('כניסה או הרשמה', 'Sign in or sign up')} className="flex border-b-[3px] border-ink">
+            {(['in', 'up'] as const).map((m) => (
+              <button
+                key={m}
+                role="tab"
+                aria-selected={mode === m}
+                onClick={() => {
+                  setMode(m);
+                  setError(null);
+                  setPwError(null);
+                }}
+                className={cn('px-5 py-3 font-display text-4xl font-bold leading-none', mode === m ? 'bg-ink text-paper' : 'hover:text-spot')}
+              >
+                {m === 'in' ? tx('כניסה', 'Sign in') : tx('הרשמה', 'Sign up')}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={google}
+            disabled={busy}
+            className="mt-8 flex w-full items-center justify-center gap-3 border-[3px] border-ink px-4 py-3.5 text-lg font-bold hover:bg-ink hover:text-paper disabled:opacity-50"
+          >
+            <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
+              <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.4 30.2 0 24 0 14.6 0 6.6 5.4 2.7 13.2l7.8 6.1C12.4 13.6 17.7 9.5 24 9.5z" />
+              <path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-16.6z" />
+              <path fill="#FBBC05" d="M10.5 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7l-7.8-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.1z" />
+              <path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.6 42.6 14.6 48 24 48z" />
+            </svg>
+            {tx('המשך עם Google', 'Continue with Google')}
+          </button>
+
+          <p className="my-6 flex items-center gap-4 text-sm font-bold text-ink/60" aria-hidden="true">
+            <span className="h-px flex-1 bg-ink/30" />
+            {tx('או עם אימייל', 'or with email')}
+            <span className="h-px flex-1 bg-ink/30" />
           </p>
-        </div>
 
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 shadow-2xl">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {isRegistering && (
-              <div className="relative">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-gold/40" size={18} />
-                <input 
-                  type="text" 
-                  placeholder="שם מלא"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  className="w-full bg-white/5 border border-white/10 rounded-none py-4 pl-12 pr-4 text-white focus:outline-none focus:border-brand-gold transition-all"
-                />
-              </div>
+          <form onSubmit={submit} noValidate className="space-y-4">
+            {mode === 'up' && (
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-bold">{tx('שם', 'Name')}</span>
+                <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" required className={input} />
+              </label>
             )}
-
-            <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-gold/40" size={18} />
-              <input 
-                type="email" 
-                placeholder="אימייל"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full bg-white/5 border border-white/10 rounded-none py-4 pl-12 pr-4 text-white focus:outline-none focus:border-brand-gold transition-all"
-              />
-            </div>
-
-            <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-gold/40" size={18} />
-              <input 
-                type="password" 
-                placeholder="סיסמה"
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-bold">{tx('אימייל', 'Email')}</span>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" dir="ltr" required className={cn(input, he && 'text-right')} />
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-bold">{tx('סיסמה', 'Password')}</span>
+              <input
+                type="password"
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
-                  if (isRegistering) setPasswordError(validatePassword(e.target.value));
+                  if (pwError) setPwError(passwordProblem(e.target.value, he));
                 }}
+                autoComplete={mode === 'up' ? 'new-password' : 'current-password'}
+                dir="ltr"
                 required
-                className={cn(
-                  "w-full bg-white/5 border rounded-none py-4 pl-12 pr-4 text-white focus:outline-none transition-all",
-                  passwordError ? "border-red-500" : "border-white/10 focus:border-brand-gold"
-                )}
+                aria-invalid={!!pwError}
+                aria-describedby={pwError ? 'pw-error' : mode === 'up' ? 'pw-hint' : undefined}
+                className={cn(input, he && 'text-right', pwError && 'border-spot')}
               />
-              {isRegistering && passwordError && (
-                <p className="text-red-400 text-[10px] mt-1 ml-1">{passwordError}</p>
+              {pwError ? (
+                <span id="pw-error" className="mt-1 block text-sm font-bold text-spot">
+                  {pwError}
+                </span>
+              ) : (
+                mode === 'up' && (
+                  <span id="pw-hint" className="mt-1 block text-sm text-ink/60">
+                    {tx('לפחות 8 תווים וספרה אחת.', 'At least 8 characters and one number.')}
+                  </span>
+                )
               )}
-            </div>
+            </label>
 
             {error && (
-              <p className="text-red-400 text-xs text-center font-medium">{error}</p>
+              <p role="alert" className="border-s-[5px] border-spot bg-spot/10 px-4 py-3 font-bold">
+                {error}
+              </p>
             )}
 
-            <button 
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-brand-gold text-brand-black py-4 text-xs uppercase tracking-[0.3em] font-bold hover:bg-white transition-all flex items-center justify-center gap-3 group disabled:opacity-50"
-            >
-              {isLoading ? 'מעבד...' : (isRegistering ? 'הרשמה' : 'כניסה')}
-              {!isLoading && <ArrowRight size={16} className="group-hover:translate-x-2 transition-transform" />}
+            <button type="submit" disabled={busy} className="w-full bg-ink px-4 py-4 text-xl font-black text-paper hover:bg-spot disabled:opacity-50">
+              {busy ? tx('רגע...', 'One moment...') : mode === 'in' ? tx('להיכנס', 'Sign in') : tx('לפתוח חשבון', 'Create account')}
             </button>
           </form>
 
-          <div className="relative my-8">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-white/10"></div>
-            </div>
-            <div className="relative flex justify-center text-xs uppercase tracking-widest">
-              <span className="bg-brand-black px-4 text-white/30">או</span>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-4">
-            <button 
-              onClick={handleAppleSignIn}
-              disabled={isLoading}
-              className="w-full border border-white/10 text-white py-4 text-xs uppercase tracking-[0.2em] hover:bg-white/5 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-            >
-              <img src="https://www.apple.com/favicon.ico" alt="" className="w-4 h-4 brightness-0 invert" />
-              התחברות עם Apple
-            </button>
-
-            <button 
-              onClick={handleAnonymousSignIn}
-              disabled={isLoading}
-              className="w-full border border-brand-gold/20 text-brand-gold py-4 text-xs uppercase tracking-[0.2em] hover:bg-brand-gold/5 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-            >
-              <User size={16} />
-              התחברות כמשתמש אנונימי (ללא שמירת נתונים)
-            </button>
-
-            <button 
-              onClick={() => {
-                setError('התחברות עם Instagram תהיה זמינה בקרוב');
-              }}
-              disabled={isLoading}
-              className="w-full border border-white/10 text-white py-4 text-xs uppercase tracking-[0.2em] hover:bg-white/5 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-            >
-              <Instagram size={16} className="text-pink-500" />
-              התחברות עם Instagram
-            </button>
-          </div>
-
-          <div className="mt-8 text-center">
-            <button 
-              onClick={() => setIsRegistering(!isRegistering)}
-              className="text-xs text-brand-gold/60 hover:text-brand-gold transition-colors tracking-widest uppercase"
-            >
-              {isRegistering ? 'כבר יש לכם חשבון? התחברו' : 'אין לכם חשבון? הירשמו עכשיו'}
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-12 text-center">
-          <p className="text-[10px] text-white/20 uppercase tracking-[0.2em] flex items-center justify-center gap-2">
-            <Sparkles size={10} /> חוויה זוגית מודרכת <Sparkles size={10} />
+          <p className="mt-8 text-sm text-ink/70">
+            {tx('בהרשמה אתם מסכימים ל', 'By signing up you agree to the ')}
+            <Link to="/legal" className="font-bold underline underline-offset-4 hover:text-spot">
+              {tx('תקנון ותנאי השימוש', 'terms of use')}
+            </Link>
+            .
           </p>
         </div>
-      </motion.div>
+      </main>
     </div>
   );
 };

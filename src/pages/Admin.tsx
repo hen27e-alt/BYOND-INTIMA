@@ -1,2097 +1,1003 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { collection, deleteDoc, doc, getDocs, orderBy, query, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { getDownloadURL, ref, uploadString } from 'firebase/storage';
+import { ChevronDown, Plus, Search, X } from 'lucide-react';
+import { db, storage } from '../firebase';
 import { useFirebase } from '../contexts/FirebaseContext';
-import { storage, db, handleFirestoreError, OperationType } from '../firebase';
-import { ref, uploadString, getDownloadURL } from 'firebase/storage';
-import { 
-  collection, 
-  getDocs, 
-  doc, 
-  updateDoc, 
-  deleteDoc, 
-  query, 
-  orderBy, 
-  where,
-  setDoc,
-  addDoc,
-  serverTimestamp 
-} from 'firebase/firestore';
-import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Users, 
-  ShoppingBag, 
-  Search, 
-  Trash2, 
-  Ban, 
-  CheckCircle, 
-  CreditCard, 
-  ArrowLeft, 
-  Loader2, 
-  AlertCircle,
-  ShieldCheck,
-  UserX,
-  RefreshCcw,
-  DollarSign,
-  Plus,
-  Star,
-  Download,
-  X,
-  ChevronRight,
-  Settings,
-  Upload
-} from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { useAlert } from '../components/AlertModal';
-import { EditableText, useEditMode } from '../components/EditableText';
 import { boutiqueProducts } from '../data/boutique';
+import { BOX_IDS } from '../data/season';
+import {
+  CATEGORY_LABELS,
+  DEFAULT_SEASON,
+  type Evening,
+  type Product,
+  SEASON_DOC,
+  type SeasonSettings,
+  useCatalogue,
+  useSeasonSettings,
+} from '../lib/catalogue';
+import { cn } from '../lib/utils';
+import { ORDER_STATUSES } from '../data/orderStatus';
 
-interface UserProfile {
-  uid: string;
-  email: string;
-  displayName: string | null;
-  credits?: number;
-  medals?: string[];
-  status?: 'active' | 'disabled';
-  role?: 'user' | 'admin' | 'partner';
-  isVip?: boolean;
-  vipDate?: any;
-  phone?: string;
-  createdAt?: any;
-  address?: string;
-  location?: { lat: number; lng: number } | string;
-  photoURL?: string;
-  lastLogin?: any;
-}
+const ADMIN_EMAIL = 'hen27e@gmail.com';
+const pad = (n: number) => String(n).padStart(2, '0');
+const isBox = (id: string) => (BOX_IDS as readonly string[]).includes(id);
+const inCode = (id: string) => boutiqueProducts.some((p) => p.id === id);
 
-interface Order {
-  orderId: string;
-  userId: string;
-  totalAmount: number;
-  status: 'pending' | 'completed' | 'cancelled' | 'refunded';
-  createdAt: any;
-  items?: any[];
-}
+type Tab = 'products' | 'orders' | 'messages' | 'season';
+const TABS: Tab[] = ['products', 'orders', 'messages', 'season'];
+
+/* ------------------------------------------------------------------ */
+/* Small shared pieces                                                 */
+/* ------------------------------------------------------------------ */
+
+const inputCls =
+  'w-full border-2 border-ink bg-paper px-3 py-2.5 text-base text-ink placeholder:text-ink/45 focus:border-spot focus:outline-none disabled:opacity-50';
+
+const Field = ({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) => (
+  <label className="block">
+    <span className="mb-1.5 block text-sm font-bold">{label}</span>
+    {children}
+    {hint && <span className="mt-1 block text-xs text-ink/60">{hint}</span>}
+  </label>
+);
+
+const Check = ({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) => (
+  <label className="flex cursor-pointer items-center gap-3 border-b border-rule py-2.5 text-base">
+    <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-5 w-5 accent-[var(--color-accent)]" />
+    {label}
+  </label>
+);
+
+const Button = ({
+  tone = 'ink',
+  className,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { tone?: 'ink' | 'spot' | 'line' }) => (
+  <button
+    type="button"
+    {...props}
+    className={cn(
+      'inline-flex items-center justify-center gap-2 px-4 py-2.5 text-base font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+      tone === 'ink' && 'bg-ink text-paper hover:bg-spot',
+      tone === 'spot' && 'bg-spot text-paper hover:bg-ink',
+      tone === 'line' && 'border-2 border-ink hover:bg-ink hover:text-paper',
+      className
+    )}
+  />
+);
+
+/** A status line that the panel writes into after every save, so the owner always knows what happened. */
+const useNotice = () => {
+  const [notice, setNotice] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
+  const timer = useRef<number | undefined>(undefined);
+  const show = (tone: 'ok' | 'err', text: string) => {
+    setNotice({ tone, text });
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => setNotice(null), 5000);
+  };
+  return { notice, ok: (t: string) => show('ok', t), err: (t: string) => show('err', t) };
+};
+
+const saveError = (e: unknown) =>
+  String((e as { code?: string })?.code ?? '').includes('permission')
+    ? 'אין הרשאה לשמור. צריך להיות מחוברת עם חשבון המנהלת.'
+    : 'השמירה נכשלה. בדקי את החיבור לאינטרנט ונסי שוב.';
+
+/* ------------------------------------------------------------------ */
+/* Products                                                            */
+/* ------------------------------------------------------------------ */
+
+type Draft = {
+  id: string;
+  name: string;
+  description: string;
+  price: string;
+  category: string;
+  image: string;
+  isPremium: boolean;
+  personalizable: boolean;
+  hidden: boolean;
+  soldOut: boolean;
+  features: string;
+  material: string;
+  dimensions: string;
+  care: string;
+  isNew: boolean;
+};
+
+const toDraft = (p?: Product): Draft => ({
+  id: p?.id ?? `custom_${Date.now().toString(36)}`,
+  name: p?.name ?? '',
+  description: p?.description ?? '',
+  price: p ? String(p.price ?? '') : '',
+  category: p?.category ?? 'lifestyle',
+  image: p?.image ?? '',
+  isPremium: !!p?.isPremium,
+  personalizable: !!p?.personalizable,
+  hidden: !!p?.hidden,
+  soldOut: !!p?.soldOut,
+  features: (p?.features ?? []).join('\n'),
+  material: p?.material ?? '',
+  dimensions: p?.dimensions ?? '',
+  care: p?.care ?? '',
+  isNew: !p,
+});
+
+const ProductEditor = ({
+  draft,
+  onClose,
+  onSaved,
+  canWrite,
+  notify,
+}: {
+  draft: Draft;
+  onClose: () => void;
+  onSaved: (msg: string) => void;
+  canWrite: boolean;
+  notify: ReturnType<typeof useNotice>;
+}) => {
+  const [d, setD] = useState<Draft>(draft);
+  const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [errors, setErrors] = useState<Partial<Record<keyof Draft, string>>>({});
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setD((prev) => ({ ...prev, [k]: v }));
+  const box = isBox(d.id);
+  const fromCode = inCode(d.id);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    dialogRef.current?.querySelector<HTMLInputElement>('input')?.focus();
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const upload = (file: File) => {
+    if (!file.type.startsWith('image/')) return notify.err('אפשר להעלות רק קובץ תמונה.');
+    if (file.size > 5 * 1024 * 1024) return notify.err('התמונה גדולה מ־5MB. נסי תמונה קטנה יותר.');
+    setUploading(true);
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const r = ref(storage, `products/${d.id}_${Date.now()}`);
+        await uploadString(r, reader.result as string, 'data_url');
+        set('image', await getDownloadURL(r));
+      } catch (e) {
+        notify.err(saveError(e).replace('לשמור', 'להעלות'));
+      } finally {
+        setUploading(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const save = async () => {
+    const next: typeof errors = {};
+    if (!d.name.trim()) next.name = 'צריך שם למוצר.';
+    const price = Number(d.price);
+    if (!d.price.trim() || !Number.isFinite(price) || price < 0) next.price = 'מחיר במספרים, למשל 290.';
+    setErrors(next);
+    if (Object.keys(next).length) return;
+    setBusy(true);
+    try {
+      await setDoc(
+        doc(db, 'products', d.id),
+        {
+          name: d.name.trim(),
+          description: d.description.trim(),
+          price,
+          category: d.category,
+          image: d.image.trim(),
+          isPremium: d.isPremium,
+          personalizable: d.personalizable,
+          hidden: d.hidden,
+          soldOut: d.soldOut,
+          features: d.features.split('\n').map((s) => s.trim()).filter(Boolean),
+          material: d.material.trim(),
+          dimensions: d.dimensions.trim(),
+          care: d.care.trim(),
+          adminEdited: true,
+          ...(fromCode ? {} : { custom: true }),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+      onSaved(d.isNew ? `${d.name} נוסף לחנות.` : `${d.name} נשמר.`);
+    } catch (e) {
+      notify.err(saveError(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async () => {
+    setBusy(true);
+    try {
+      await deleteDoc(doc(db, 'products', d.id));
+      onSaved(fromCode ? `${d.name} חזר לגרסה המקורית.` : `${d.name} נמחק מהחנות.`);
+    } catch (e) {
+      notify.err(saveError(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[120] flex justify-end" role="dialog" aria-modal="true" aria-labelledby="editor-title">
+      <div className="absolute inset-0 bg-ink/60" onClick={onClose} />
+      <div ref={dialogRef} className="relative flex h-full w-full max-w-xl flex-col border-s-[3px] border-ink bg-paper">
+        <header className="flex items-center justify-between border-b-[3px] border-ink px-5 py-4">
+          <h2 id="editor-title" className="font-display text-4xl font-bold leading-none">
+            {d.isNew ? 'מוצר חדש' : box ? 'עריכת מארז' : 'עריכת מוצר'}
+          </h2>
+          <button onClick={onClose} className="p-1 hover:text-spot" aria-label="סגירה">
+            <X size={24} />
+          </button>
+        </header>
+
+        <div className="flex-1 space-y-5 overflow-y-auto px-5 py-6">
+          <Field label="שם">
+            <input value={d.name} onChange={(e) => set('name', e.target.value)} className={inputCls} aria-invalid={!!errors.name} />
+            {errors.name && <span className="mt-1 block text-sm font-bold text-spot">{errors.name}</span>}
+          </Field>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="מחיר (₪)">
+              <input
+                value={d.price}
+                onChange={(e) => set('price', e.target.value.replace(/[^\d.]/g, ''))}
+                inputMode="decimal"
+                dir="ltr"
+                className={cn(inputCls, 'text-right tabular-nums')}
+                aria-invalid={!!errors.price}
+              />
+              {errors.price && <span className="mt-1 block text-sm font-bold text-spot">{errors.price}</span>}
+            </Field>
+            <Field label="קטגוריה">
+              <select value={d.category} onChange={(e) => set('category', e.target.value)} className={inputCls} disabled={box}>
+                {Object.entries(CATEGORY_LABELS).map(([id, label]) => (
+                  <option key={id} value={id}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+
+          <Field label="תיאור">
+            <textarea value={d.description} onChange={(e) => set('description', e.target.value)} rows={4} className={inputCls} />
+          </Field>
+
+          <div>
+            <span className="mb-1.5 block text-sm font-bold">תמונה</span>
+            <div className="flex gap-4">
+              <div className="h-28 w-24 shrink-0 overflow-hidden border-2 border-ink bg-surface">
+                {d.image ? <img src={d.image} alt="" className="h-full w-full object-cover" /> : null}
+              </div>
+              <div className="flex flex-1 flex-col gap-2">
+                <label className={cn('inline-flex w-fit cursor-pointer items-center gap-2 border-2 border-ink px-4 py-2 font-bold hover:bg-ink hover:text-paper', uploading && 'opacity-50')}>
+                  {uploading ? 'מעלה...' : 'להעלות תמונה'}
+                  <input type="file" accept="image/*" className="sr-only" disabled={uploading || !canWrite} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
+                </label>
+                <input value={d.image} onChange={(e) => set('image', e.target.value)} placeholder="או להדביק קישור לתמונה" dir="ltr" className={cn(inputCls, 'text-right text-sm')} />
+              </div>
+            </div>
+          </div>
+
+          <Field label={box ? 'מה בקופסה' : 'מה כלול'} hint="שורה לכל פריט">
+            <textarea value={d.features} onChange={(e) => set('features', e.target.value)} rows={4} className={inputCls} />
+          </Field>
+
+          <fieldset>
+            <legend className="mb-1 text-sm font-bold">מצב באתר</legend>
+            <Check label="מוסתר מהאתר" checked={d.hidden} onChange={(v) => set('hidden', v)} />
+            <Check label="אזל מהמלאי (מוצג, אבל אי אפשר לקנות)" checked={d.soldOut} onChange={(v) => set('soldOut', v)} />
+            <Check label="למנויים בלבד" checked={d.isPremium} onChange={(v) => set('isPremium', v)} />
+            <Check label="אפשר חריטה והקדשה" checked={d.personalizable} onChange={(v) => set('personalizable', v)} />
+          </fieldset>
+
+          <details className="border-t-[3px] border-ink pt-3">
+            <summary className="cursor-pointer text-sm font-bold">מפרט (לא חובה)</summary>
+            <div className="mt-4 space-y-4">
+              <Field label="חומר">
+                <input value={d.material} onChange={(e) => set('material', e.target.value)} dir="auto" className={inputCls} />
+              </Field>
+              <Field label="מידות">
+                <input value={d.dimensions} onChange={(e) => set('dimensions', e.target.value)} dir="auto" className={inputCls} />
+              </Field>
+              <Field label="טיפול">
+                <input value={d.care} onChange={(e) => set('care', e.target.value)} dir="auto" className={inputCls} />
+              </Field>
+            </div>
+          </details>
+        </div>
+
+        <footer className="flex flex-wrap items-center justify-between gap-3 border-t-[3px] border-ink px-5 py-4">
+          <div>
+            {!d.isNew &&
+              !box &&
+              (confirmRemove ? (
+                <span className="flex items-center gap-2">
+                  <Button tone="spot" onClick={remove} disabled={busy || !canWrite}>
+                    {fromCode ? 'כן, לשחזר' : 'כן, למחוק'}
+                  </Button>
+                  <button onClick={() => setConfirmRemove(false)} className="text-sm font-bold underline underline-offset-4">
+                    ביטול
+                  </button>
+                </span>
+              ) : (
+                <button onClick={() => setConfirmRemove(true)} className="text-sm font-bold text-spot underline underline-offset-4" disabled={!canWrite}>
+                  {fromCode ? 'לשחזר לגרסה המקורית' : 'למחוק את המוצר'}
+                </button>
+              ))}
+          </div>
+          <div className="flex gap-2">
+            <Button tone="line" onClick={onClose}>
+              ביטול
+            </Button>
+            <Button onClick={save} disabled={busy || uploading || !canWrite}>
+              {busy ? 'שומר...' : 'לשמור'}
+            </Button>
+          </div>
+        </footer>
+      </div>
+    </div>
+  );
+};
+
+const ProductsTab = ({ canWrite, notify }: { canWrite: boolean; notify: ReturnType<typeof useNotice> }) => {
+  const { products, ready } = useCatalogue();
+  const [q, setQ] = useState('');
+  const [cat, setCat] = useState('all');
+  const [editing, setEditing] = useState<Draft | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const list = useMemo(() => {
+    const term = q.trim();
+    return products
+      .filter((p) => (cat === 'all' ? true : cat === 'hidden' ? p.hidden : p.category === cat))
+      .filter((p) => !term || p.name.includes(term) || p.id.includes(term))
+      .sort((a, b) => Number(isBox(b.id)) - Number(isBox(a.id)));
+  }, [products, q, cat]);
+
+  const quick = async (p: Product, patch: Partial<Product>, msg: string) => {
+    setBusyId(p.id);
+    try {
+      await setDoc(doc(db, 'products', p.id), { ...patch, updatedAt: serverTimestamp() }, { merge: true });
+      notify.ok(msg);
+    } catch (e) {
+      notify.err(saveError(e));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const shownCount = products.filter((p) => !p.hidden).length;
+
+  return (
+    <section aria-labelledby="products-title">
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b-[3px] border-ink pb-4">
+        <div>
+          <h2 id="products-title" className="font-display text-6xl font-bold leading-none">
+            המוצרים
+          </h2>
+          <p className="mt-1 text-base text-ink/70">
+            {products.length} מוצרים, {shownCount} מוצגים באתר. {!ready && 'טוען...'}
+          </p>
+        </div>
+        <Button tone="spot" onClick={() => setEditing(toDraft())} disabled={!canWrite}>
+          <Plus size={18} /> מוצר חדש
+        </Button>
+      </div>
+
+      <div className="flex flex-col gap-3 border-b border-ink py-4 sm:flex-row">
+        <label className="relative flex-1">
+          <span className="sr-only">חיפוש מוצר</span>
+          <Search size={18} className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-ink/50" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="חיפוש לפי שם" className={cn(inputCls, 'ps-10')} />
+        </label>
+        <label className="sm:w-64">
+          <span className="sr-only">סינון לפי קטגוריה</span>
+          <select value={cat} onChange={(e) => setCat(e.target.value)} className={inputCls}>
+            <option value="all">כל הקטגוריות</option>
+            {Object.entries(CATEGORY_LABELS).map(([id, label]) => (
+              <option key={id} value={id}>
+                {label}
+              </option>
+            ))}
+            <option value="hidden">מוסתרים</option>
+          </select>
+        </label>
+      </div>
+
+      <ul>
+        {list.map((p) => (
+          <li key={p.id} className={cn('grid grid-cols-[64px_1fr] gap-4 border-b border-rule py-4 sm:grid-cols-[72px_1fr_auto] sm:items-center', p.hidden && 'opacity-60')}>
+            <div className="h-20 w-16 overflow-hidden border-2 border-ink bg-surface sm:h-24 sm:w-[72px]">
+              {p.image && <img src={p.image} alt="" loading="lazy" className="h-full w-full object-cover" />}
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-lg font-bold leading-snug">{p.name}</h3>
+                {isBox(p.id) && <span className="bg-spot px-1.5 py-0.5 text-xs font-bold text-paper">מארז</span>}
+                {p.hidden && <span className="border border-ink px-1.5 py-0.5 text-xs font-bold">מוסתר</span>}
+                {p.soldOut && <span className="bg-ink px-1.5 py-0.5 text-xs font-bold text-paper">אזל</span>}
+                {p.isPremium && <span className="border border-ink px-1.5 py-0.5 text-xs font-bold">למנויים</span>}
+                {p.custom && <span className="border border-spot px-1.5 py-0.5 text-xs font-bold text-spot">נוסף בפאנל</span>}
+              </div>
+              <p className="mt-0.5 text-sm text-ink/70">
+                {CATEGORY_LABELS[p.category] ?? p.category} · <span className="font-bold tabular-nums text-ink">₪{p.price}</span>
+              </p>
+            </div>
+            <div className="col-span-2 flex flex-wrap gap-2 sm:col-span-1 sm:justify-end">
+              <Button
+                tone="line"
+                className="px-3 py-1.5 text-sm"
+                disabled={!canWrite || busyId === p.id}
+                onClick={() => quick(p, { hidden: !p.hidden }, p.hidden ? `${p.name} מוצג שוב באתר.` : `${p.name} הוסתר מהאתר.`)}
+              >
+                {p.hidden ? 'להציג' : 'להסתיר'}
+              </Button>
+              <Button
+                tone="line"
+                className="px-3 py-1.5 text-sm"
+                disabled={!canWrite || busyId === p.id}
+                onClick={() => quick(p, { soldOut: !p.soldOut }, p.soldOut ? `${p.name} חזר למלאי.` : `${p.name} סומן כאזל.`)}
+              >
+                {p.soldOut ? 'חזר למלאי' : 'אזל'}
+              </Button>
+              <Button className="px-3 py-1.5 text-sm" onClick={() => setEditing(toDraft(p))}>
+                עריכה
+              </Button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      {list.length === 0 && <p className="py-16 text-center text-lg">אין מוצרים שמתאימים לחיפוש.</p>}
+
+      {editing && (
+        <ProductEditor
+          draft={editing}
+          canWrite={canWrite}
+          notify={notify}
+          onClose={() => setEditing(null)}
+          onSaved={(msg) => {
+            setEditing(null);
+            notify.ok(msg);
+          }}
+        />
+      )}
+    </section>
+  );
+};
+
+/* ------------------------------------------------------------------ */
+/* Orders                                                              */
+/* ------------------------------------------------------------------ */
+
+const STATUSES = ORDER_STATUSES.map((s) => ({ id: s.id, label: s.he }));
+
+type Order = {
+  id: string;
+  userId?: string;
+  status?: string;
+  totalAmount?: number;
+  subtotal?: number;
+  shipping?: number;
+  paymentMethod?: string;
+  createdAt?: { toDate?: () => Date };
+  customerDetails?: Record<string, string>;
+  items?: { id: string; name: string; price: number; quantity: number; personalization?: { name?: string; dedication?: string } | null }[];
+};
+
+const fmtDate = (o: Order) => {
+  const d = o.createdAt?.toDate?.();
+  return d ? d.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '–';
+};
+
+const OrdersTab = ({ canWrite, notify }: { canWrite: boolean; notify: ReturnType<typeof useNotice> }) => {
+  const [orders, setOrders] = useState<Order[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<string>('open');
+  const [open, setOpen] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoadError(null);
+    try {
+      const snap = await getDocs(query(collection(db, 'orders'), orderBy('createdAt', 'desc')));
+      setOrders(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Order));
+    } catch (e) {
+      setOrders([]);
+      setLoadError(String((e as { code?: string })?.code ?? '').includes('permission') ? 'אין הרשאה לקרוא הזמנות. צריך להיות מחוברת עם חשבון המנהלת.' : 'לא הצלחנו לטעון את ההזמנות.');
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const setStatus = async (o: Order, status: string) => {
+    const prev = o.status;
+    setOrders((all) => all?.map((x) => (x.id === o.id ? { ...x, status } : x)) ?? null);
+    try {
+      await updateDoc(doc(db, 'orders', o.id), { status, updatedAt: serverTimestamp() });
+      notify.ok(`הזמנה ${o.id.slice(0, 6).toUpperCase()} סומנה: ${STATUSES.find((s) => s.id === status)?.label}.`);
+    } catch (e) {
+      setOrders((all) => all?.map((x) => (x.id === o.id ? { ...x, status: prev } : x)) ?? null);
+      notify.err(saveError(e));
+    }
+  };
+
+  const all = orders ?? [];
+  const count = (id: string) => all.filter((o) => (o.status ?? 'pending') === id).length;
+  const list = all.filter((o) => {
+    const s = o.status ?? 'pending';
+    return filter === 'all' ? true : filter === 'open' ? s === 'pending' || s === 'paid' || s === 'processing' : s === filter;
+  });
+  const revenue = all.filter((o) => o.status !== 'cancelled').reduce((sum, o) => sum + (o.totalAmount ?? 0), 0);
+
+  return (
+    <section aria-labelledby="orders-title">
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b-[3px] border-ink pb-4">
+        <h2 id="orders-title" className="font-display text-6xl font-bold leading-none">
+          ההזמנות
+        </h2>
+        <Button tone="line" onClick={() => void load()}>
+          רענון
+        </Button>
+      </div>
+
+      <dl className="grid grid-cols-2 border-b border-ink sm:grid-cols-4">
+        {[
+          ['לטיפול', count('pending') + count('paid') + count('processing')],
+          ['נשלחו', count('shipped')],
+          ['סך הכול הזמנות', all.length],
+          ['מחזור (ללא בוטלו)', `₪${revenue.toLocaleString('he-IL')}`],
+        ].map(([k, v], i) => (
+          <div key={k as string} className={cn('py-4 pe-4', i % 2 === 0 && 'border-e border-rule sm:border-e', i === 1 && 'sm:border-e', i === 2 && 'border-t border-rule sm:border-t-0')}>
+            <dt className="text-sm font-bold text-ink/70">{k}</dt>
+            <dd className="font-display text-5xl font-bold leading-none tabular-nums">{v}</dd>
+          </div>
+        ))}
+      </dl>
+
+      <div role="group" aria-label="סינון לפי מצב" className="flex flex-wrap gap-x-1 gap-y-2 border-b border-ink py-3">
+        {[{ id: 'open', label: 'לטיפול' }, ...STATUSES, { id: 'all', label: 'הכול' }].map((s) => (
+          <button
+            key={s.id}
+            onClick={() => setFilter(s.id)}
+            aria-pressed={filter === s.id}
+            className={cn('px-3 py-1.5 text-sm font-bold', filter === s.id ? 'bg-ink text-paper' : 'hover:text-spot')}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {loadError && <p className="border-b border-rule py-6 font-bold text-spot">{loadError}</p>}
+      {orders === null && <p className="py-10 text-center">טוען הזמנות...</p>}
+      {orders !== null && !loadError && list.length === 0 && <p className="py-16 text-center text-lg">אין הזמנות במצב הזה.</p>}
+
+      <ul>
+        {list.map((o) => {
+          const c = o.customerDetails ?? {};
+          const isOpen = open === o.id;
+          return (
+            <li key={o.id} className="border-b border-rule">
+              <div className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 py-4 md:grid-cols-[120px_1fr_120px_160px_40px]">
+                <p className="font-bold tabular-nums" dir="ltr">
+                  #{o.id.slice(0, 6).toUpperCase()}
+                </p>
+                <p className="order-3 col-span-2 md:order-none md:col-span-1">
+                  <span className="font-bold">{[c.firstName, c.lastName].filter(Boolean).join(' ') || 'ללא שם'}</span>
+                  <span className="ms-2 text-sm text-ink/60">{fmtDate(o)}</span>
+                </p>
+                <p className="font-display text-3xl font-bold leading-none tabular-nums">₪{o.totalAmount ?? 0}</p>
+                <label className="order-4 md:order-none">
+                  <span className="sr-only">מצב ההזמנה</span>
+                  <select
+                    value={o.status ?? 'pending'}
+                    onChange={(e) => void setStatus(o, e.target.value)}
+                    disabled={!canWrite}
+                    className={cn(inputCls, 'py-1.5 text-sm font-bold', (o.status ?? 'pending') === 'pending' && 'border-spot text-spot')}
+                  >
+                    {STATUSES.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  onClick={() => setOpen(isOpen ? null : o.id)}
+                  aria-expanded={isOpen}
+                  aria-label="פרטי ההזמנה"
+                  className="order-5 justify-self-end p-2 hover:text-spot md:order-none"
+                >
+                  <ChevronDown size={20} className={cn('transition-transform', isOpen && 'rotate-180')} />
+                </button>
+              </div>
+              {isOpen && (
+                <div className="grid gap-6 border-t border-rule bg-surface px-4 py-5 md:grid-cols-2">
+                  <div>
+                    <h3 className="mb-2 text-sm font-bold">מה הוזמן</h3>
+                    <ul>
+                      {(o.items ?? []).map((it) => (
+                        <li key={it.id} className="border-b border-rule py-2">
+                          <span className="flex justify-between gap-3">
+                            <span>
+                              {it.name} <span className="text-ink/60">× {it.quantity}</span>
+                            </span>
+                            <span className="tabular-nums">₪{it.price * it.quantity}</span>
+                          </span>
+                          {it.personalization && (
+                            <span className="mt-1 block text-sm text-spot">
+                              חריטה: {it.personalization.name} {it.personalization.dedication && `· "${it.personalization.dedication}"`}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-2 text-sm text-ink/70">
+                      משלוח ₪{o.shipping ?? 0} · תשלום: {o.paymentMethod === 'phone' ? 'טלפוני' : 'כרטיס אשראי'}
+                    </p>
+                  </div>
+                  <div>
+                    <h3 className="mb-2 text-sm font-bold">לאן שולחים</h3>
+                    <p>{[c.address, c.city].filter(Boolean).join(', ') || '–'}</p>
+                    <p className="mt-2">
+                      <a href={`tel:${c.phone}`} dir="ltr" className="underline underline-offset-4">
+                        {c.phone}
+                      </a>
+                    </p>
+                    <p>
+                      <a href={`mailto:${c.email}`} dir="ltr" className="underline underline-offset-4">
+                        {c.email}
+                      </a>
+                    </p>
+                    {c.notes && <p className="mt-2 text-sm">הערות: {c.notes}</p>}
+                  </div>
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      <p className="pt-4 text-sm text-ink/60">מוצגות הזמנות של לקוחות מחוברים. הזמנות של אורחים מגיעות דרך Stripe ולא נשמרות כאן.</p>
+    </section>
+  );
+};
+
+/* ------------------------------------------------------------------ */
+/* Messages from the contact form                                      */
+/* ------------------------------------------------------------------ */
+
+type Message = { id: string; name?: string; email?: string; subject?: string; message?: string; status?: string; createdAt?: { toDate?: () => Date } };
+
+const MessagesTab = ({ canWrite, notify }: { canWrite: boolean; notify: ReturnType<typeof useNotice> }) => {
+  const [items, setItems] = useState<Message[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [showDone, setShowDone] = useState(false);
+
+  useEffect(() => {
+    getDocs(query(collection(db, 'contact_messages'), orderBy('createdAt', 'desc')))
+      .then((snap) => setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Message)))
+      .catch((e) => {
+        setItems([]);
+        setLoadError(String(e?.code ?? '').includes('permission') ? 'אין הרשאה לקרוא פניות. צריך להיות מחוברת עם חשבון המנהלת.' : 'לא הצלחנו לטעון את הפניות.');
+      });
+  }, []);
+
+  const toggle = async (m: Message) => {
+    const status = m.status === 'done' ? 'new' : 'done';
+    setItems((all) => all?.map((x) => (x.id === m.id ? { ...x, status } : x)) ?? null);
+    try {
+      await updateDoc(doc(db, 'contact_messages', m.id), { status });
+      notify.ok(status === 'done' ? 'הפנייה סומנה כטופלה.' : 'הפנייה חזרה לרשימה.');
+    } catch (e) {
+      setItems((all) => all?.map((x) => (x.id === m.id ? { ...x, status: m.status } : x)) ?? null);
+      notify.err(saveError(e));
+    }
+  };
+
+  const list = (items ?? []).filter((m) => (showDone ? true : m.status !== 'done'));
+  const open = (items ?? []).filter((m) => m.status !== 'done').length;
+
+  return (
+    <section aria-labelledby="messages-title">
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b-[3px] border-ink pb-4">
+        <div>
+          <h2 id="messages-title" className="font-display text-6xl font-bold leading-none">
+            פניות
+          </h2>
+          <p className="mt-1 text-base text-ink/70">{items ? `${open} פניות פתוחות` : 'טוען...'}</p>
+        </div>
+        <label className="flex items-center gap-2 text-base font-bold">
+          <input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} className="h-5 w-5 accent-[var(--color-accent)]" />
+          להציג גם פניות שטופלו
+        </label>
+      </div>
+      {loadError && <p className="border-b border-rule py-6 font-bold text-spot">{loadError}</p>}
+      {items && !loadError && list.length === 0 && <p className="py-16 text-center text-lg">אין פניות פתוחות.</p>}
+      <ul>
+        {list.map((m) => (
+          <li key={m.id} className={cn('border-b border-rule py-5', m.status === 'done' && 'opacity-60')}>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+              <p className="text-lg font-bold">
+                {m.name} <span className="ms-2 text-sm font-medium text-spot">{m.subject}</span>
+              </p>
+              <p className="text-sm text-ink/60">{m.createdAt?.toDate?.().toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' })}</p>
+            </div>
+            <p className="mt-2 max-w-[70ch] whitespace-pre-line text-base leading-relaxed">{m.message}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <a href={`mailto:${m.email}?subject=${encodeURIComponent('Byond Intima: ' + (m.subject ?? ''))}`} className="bg-ink px-3 py-1.5 text-sm font-bold text-paper hover:bg-spot">
+                לענות במייל
+              </a>
+              <Button tone="line" className="px-3 py-1.5 text-sm" disabled={!canWrite} onClick={() => void toggle(m)}>
+                {m.status === 'done' ? 'להחזיר לפתוחות' : 'טופל'}
+              </Button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+};
+
+/* ------------------------------------------------------------------ */
+/* Season & membership                                                 */
+/* ------------------------------------------------------------------ */
+
+const SeasonTab = ({ canWrite, notify }: { canWrite: boolean; notify: ReturnType<typeof useNotice> }) => {
+  const live = useSeasonSettings();
+  const [s, setS] = useState<SeasonSettings>(live);
+  const [price, setPrice] = useState('');
+  const [discount, setDiscount] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    if (dirty) return;
+    setS(live);
+    setPrice(live.price === null ? '' : String(live.price));
+    setDiscount(live.memberDiscountPercent === null ? '' : String(live.memberDiscountPercent));
+  }, [live, dirty]);
+
+  const touch = () => setDirty(true);
+  const setEvening = (i: number, patch: Partial<Evening>) => {
+    touch();
+    setS((prev) => ({ ...prev, evenings: prev.evenings.map((e, j) => (j === i ? { ...e, ...patch } : e)) }));
+  };
+
+  const priceN = price.trim() === '' ? null : Number(price);
+  const discountN = discount.trim() === '' ? null : Number(discount);
+  const discountBad = discountN !== null && (!Number.isFinite(discountN) || discountN < 0 || discountN > 90);
+  const priceBad = priceN !== null && (!Number.isFinite(priceN) || priceN < 0);
+
+  const save = async () => {
+    if (discountBad || priceBad) return;
+    setBusy(true);
+    try {
+      await setDoc(
+        doc(db, ...SEASON_DOC),
+        {
+          price: priceN,
+          memberDiscountPercent: discountN,
+          nextSeasonStarts: s.nextSeasonStarts || null,
+          seasonNumber: s.seasonNumber,
+          evenings: s.evenings.map((e, i) => ({ ...e, n: i + 1 })),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+      setDirty(false);
+      notify.ok('הגדרות העונה נשמרו. האתר מתעדכן מיד.');
+    } catch (e) {
+      notify.err(saveError(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const boxes = boutiqueProducts.filter((p) => isBox(p.id));
+  const sample = 580;
+
+  return (
+    <section aria-labelledby="season-title">
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b-[3px] border-ink pb-4">
+        <h2 id="season-title" className="font-display text-6xl font-bold leading-none">
+          העונה והמנוי
+        </h2>
+        <Button onClick={save} disabled={!canWrite || busy || !dirty || discountBad || priceBad}>
+          {busy ? 'שומר...' : dirty ? 'לשמור שינויים' : 'הכול שמור'}
+        </Button>
+      </div>
+
+      <div className="grid gap-x-10 gap-y-6 border-b border-ink py-6 md:grid-cols-2 lg:grid-cols-4">
+        <Field label="מחיר המנוי לחודש (₪)" hint="ריק = 'יפורסם בקרוב'">
+          <input value={price} onChange={(e) => (touch(), setPrice(e.target.value.replace(/[^\d.]/g, '')))} inputMode="decimal" dir="ltr" className={cn(inputCls, 'text-right tabular-nums')} />
+          {priceBad && <span className="mt-1 block text-sm font-bold text-spot">מחיר במספרים בלבד.</span>}
+        </Field>
+        <Field label="הנחה למנויים (%)" hint={discountN && !discountBad ? `מארז ב־₪${sample} יעלה למנויים ₪${Math.round(sample * (1 - discountN / 100))}` : 'על כל מארז ומוצר בבוטיק'}>
+          <input value={discount} onChange={(e) => (touch(), setDiscount(e.target.value.replace(/[^\d.]/g, '')))} inputMode="numeric" dir="ltr" className={cn(inputCls, 'text-right tabular-nums')} />
+          {discountBad && <span className="mt-1 block text-sm font-bold text-spot">בין 0 ל־90.</span>}
+        </Field>
+        <Field label="העונה הבאה מתחילה" hint="מופיע בספירה לאחור בדף הבית">
+          <input type="date" value={s.nextSeasonStarts ?? ''} onChange={(e) => (touch(), setS({ ...s, nextSeasonStarts: e.target.value || null }))} className={inputCls} />
+        </Field>
+        <Field label="מספר העונה הנוכחית">
+          <input
+            value={String(s.seasonNumber)}
+            onChange={(e) => (touch(), setS({ ...s, seasonNumber: Math.max(1, Number(e.target.value.replace(/\D/g, '')) || 1) }))}
+            inputMode="numeric"
+            dir="ltr"
+            className={cn(inputCls, 'text-right tabular-nums')}
+          />
+        </Field>
+      </div>
+
+      <h3 className="mt-8 flex items-baseline justify-between border-b-[3px] border-ink pb-2 font-display text-4xl font-bold leading-none">
+        לוח הערבים
+        <span className="font-sans text-sm font-bold">עונה {pad(s.seasonNumber)}</span>
+      </h3>
+      <ol>
+        {s.evenings.map((ev, i) => (
+          <li key={i} className="grid gap-3 border-b border-rule py-4 md:grid-cols-[56px_1fr_1fr_200px_auto] md:items-end">
+            <span className="font-display text-5xl font-bold leading-none text-spot tabular-nums">{pad(i + 1)}</span>
+            <Field label="שם הערב">
+              <input value={ev.he} onChange={(e) => setEvening(i, { he: e.target.value })} className={inputCls} />
+            </Field>
+            <Field label="הנושא">
+              <input value={ev.themeHe} onChange={(e) => setEvening(i, { themeHe: e.target.value })} className={inputCls} />
+            </Field>
+            <Field label="מארז מקושר">
+              <select value={ev.boxId ?? ''} onChange={(e) => setEvening(i, { boxId: e.target.value || null })} className={inputCls}>
+                <option value="">ערב במנוי, בלי מארז</option>
+                {boxes.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <button
+              onClick={() => (touch(), setS({ ...s, evenings: s.evenings.filter((_, j) => j !== i) }))}
+              disabled={s.evenings.length <= 1}
+              className="justify-self-start pb-2.5 text-sm font-bold text-spot underline underline-offset-4 disabled:opacity-40"
+            >
+              להסיר
+            </button>
+          </li>
+        ))}
+      </ol>
+      <div className="flex flex-wrap gap-3 pt-4">
+        <Button
+          tone="line"
+          disabled={s.evenings.length >= 12}
+          onClick={() => (touch(), setS({ ...s, evenings: [...s.evenings, { n: s.evenings.length + 1, he: '', en: '', themeHe: '', themeEn: '', boxId: null }] }))}
+        >
+          <Plus size={18} /> להוסיף ערב
+        </Button>
+        <Button tone="line" onClick={() => (touch(), setS({ ...s, evenings: DEFAULT_SEASON.evenings }))}>
+          לחזור ללוח המקורי
+        </Button>
+      </div>
+      <p className="pt-4 text-sm text-ink/60">השמות באנגלית נשארים כמו שהם בגרסה האנגלית של האתר.</p>
+    </section>
+  );
+};
+
+/* ------------------------------------------------------------------ */
+/* Page                                                                */
+/* ------------------------------------------------------------------ */
 
 export const Admin = () => {
-  const { profile, user, loading: authLoading } = useFirebase();
-  const { isEditMode, setIsEditMode } = useEditMode();
-  const navigate = useNavigate();
-  const { showAlert } = useAlert();
-  const [activeTab, setActiveTab] = useState<'users' | 'orders' | 'products' | 'premium' | 'missions' | 'recipes' | 'knowledge' | 'secret_missions' | 'feedback' | 'updates' | 'config' | 'site_content'>('users');
-  const [siteContent, setSiteContent] = useState<any[]>([]);
-  const [globalConfig, setGlobalConfig] = useState({
-    siteName: '',
-    conciergeName: '',
-    globalAvatar: '',
-    greetingVideoUrl: ''
+  const { user, profile, loading } = useFirebase();
+  const [tab, setTab] = useState<Tab>(() => {
+    const h = window.location.hash.slice(1);
+    return (TABS as string[]).includes(h) ? (h as Tab) : 'products';
   });
-  const [users, setUsers] = useState<UserProfile[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
-  const [missions, setMissions] = useState<any[]>([]);
-  const [secretMissions, setSecretMissions] = useState<any[]>([]);
-  const [recipes, setRecipes] = useState<any[]>([]);
-  const [knowledge, setKnowledge] = useState<any[]>([]);
-  const [feedback, setFeedback] = useState<any[]>([]);
-  const [updates, setUpdates] = useState<any[]>([]);
-  const [showCreateMission, setShowCreateMission] = useState(false);
-  const [showCreateSecretMission, setShowCreateSecretMission] = useState(false);
-  const [showCreateRecipe, setShowCreateRecipe] = useState(false);
-  const [showCreateKnowledge, setShowCreateKnowledge] = useState(false);
-  const [showCreateUpdate, setShowCreateUpdate] = useState(false);
-  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
-  const [newMission, setNewMission] = useState({
-    title: '',
-    description: '',
-    points: 10,
-    endDate: ''
-  });
-  const [newSecretMission, setNewSecretMission] = useState({
-    userId: '',
-    title: '',
-    description: '',
-    points: 50
-  });
-  const [newRecipe, setNewRecipe] = useState({
-    title: '',
-    description: '',
-    ingredients: '',
-    instructions: '',
-    prepTime: '',
-    difficulty: 'קל',
-    imageUrl: '',
-    videoUrl: ''
-  });
-  const [newKnowledge, setNewKnowledge] = useState({
-    title: '',
-    description: '',
-    type: 'article' as 'article' | 'video' | 'podcast',
-    url: '',
-    category: '',
-    thumbnailUrl: ''
-  });
-  const [newUpdate, setNewUpdate] = useState({
-    title: '',
-    description: '',
-    date: new Date().toISOString().split('T')[0],
-    type: 'feature' as 'feature' | 'improvement' | 'fix' | 'roadmap'
-  });
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
-  const [selectedUserForMedals, setSelectedUserForMedals] = useState<UserProfile | null>(null);
-  const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
-  const [sortConfig, setSortConfig] = useState<{ key: keyof Order; direction: 'asc' | 'desc' } | null>(null);
-  const [isActionLoading, setIsActionLoading] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [showCreateOrder, setShowCreateOrder] = useState(false);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [deleteConfirmType, setDeleteConfirmType] = useState<'mission' | 'secret_mission' | null>(null);
-  const [newOrder, setNewOrder] = useState({
-    userId: '',
-    totalAmount: 0,
-    status: 'pending' as Order['status'],
-    items: ''
-  });
+  const notify = useNotice();
 
-  const isAdmin = profile?.role === 'admin' || profile?.email === 'hen27e@gmail.com' || user?.email === 'hen27e@gmail.com';
-  const isPartner = profile?.role === 'partner';
+  const isAdmin = user?.email === ADMIN_EMAIL || profile?.email === ADMIN_EMAIL || profile?.role === 'admin';
+  // Local development only: lets the owner look at the panel without signing in. Saving still needs the admin account.
+  const preview = import.meta.env.DEV && new URLSearchParams(window.location.search).has('preview');
+  const canWrite = isAdmin;
 
   useEffect(() => {
-    if (!authLoading && !isAdmin) {
-      navigate('/');
-    }
-  }, [authLoading, isAdmin, navigate]);
+    const onHash = () => {
+      const h = window.location.hash.slice(1);
+      if ((TABS as string[]).includes(h)) setTab(h as Tab);
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
 
   useEffect(() => {
-    if (isAdmin) {
-      fetchData();
-    }
-  }, [isAdmin, activeTab]);
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${tab}`);
+  }, [tab]);
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      if (activeTab === 'users' || activeTab === 'premium') {
-        const usersSnap = await getDocs(collection(db, 'users'));
-        const usersList = usersSnap.docs.map(doc => doc.data() as UserProfile);
-        setUsers(usersList);
-      } else if (activeTab === 'products') {
-        const productsSnap = await getDocs(collection(db, 'products'));
-        setProducts(productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      } else if (activeTab === 'missions') {
-        const missionsSnap = await getDocs(collection(db, 'weekly_missions'));
-        const missionsList = missionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setMissions(missionsList);
-      } else if (activeTab === 'secret_missions') {
-        const missionsSnap = await getDocs(collection(db, 'secret_missions'));
-        setSecretMissions(missionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      } else if (activeTab === 'recipes') {
-        const recipesSnap = await getDocs(collection(db, 'weekly_recipes'));
-        setRecipes(recipesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      } else if (activeTab === 'knowledge') {
-        const knowledgeSnap = await getDocs(collection(db, 'knowledge_hub'));
-        setKnowledge(knowledgeSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      } else if (activeTab === 'feedback') {
-        const feedbackSnap = await getDocs(query(collection(db, 'content_feedback'), orderBy('timestamp', 'desc')));
-        setFeedback(feedbackSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      } else if (activeTab === 'updates') {
-        const updatesSnap = await getDocs(query(collection(db, 'site_updates'), orderBy('date', 'desc')));
-        setUpdates(updatesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      } else if (activeTab === 'site_content') {
-        const contentSnap = await getDocs(collection(db, 'site_content'));
-        setSiteContent(contentSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      } else if (activeTab === 'config') {
-        const configSnap = await getDocs(collection(db, 'site_content'));
-        const configDoc = configSnap.docs.find(d => d.id === 'global_config');
-        if (configDoc) {
-          setGlobalConfig(configDoc.data() as any);
-        }
-      } else {
-        const ordersSnap = await getDocs(query(collection(db, 'orders'), orderBy('createdAt', 'desc')));
-        const ordersList = ordersSnap.docs.map(doc => doc.data() as Order);
-        setOrders(ordersList);
-      }
-    } catch (error) {
-      handleFirestoreError(error, OperationType.GET, activeTab);
-    } finally {
-      setLoading(false);
-    }
-  };
+  if (loading) return <div className="min-h-screen bg-paper pt-32 text-center text-lg">טוען...</div>;
 
-  const handleUpdateUserStatus = async (uid: string, newStatus: 'active' | 'disabled') => {
-    setIsActionLoading(true);
-    try {
-      await updateDoc(doc(db, 'users', uid), { status: newStatus });
-      setUsers(users.map(u => u.uid === uid ? { ...u, status: newStatus } : u));
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${uid}`);
-    } finally {
-      setIsActionLoading(false);
-    }
-  };
-
-  const handleToggleVip = async (uid: string, currentVipStatus: boolean) => {
-    setIsActionLoading(true);
-    try {
-      const updates: any = { isVip: !currentVipStatus };
-      if (!currentVipStatus) {
-        updates.vipDate = serverTimestamp();
-      }
-      await updateDoc(doc(db, 'users', uid), updates);
-      setUsers(users.map(u => u.uid === uid ? { ...u, isVip: !currentVipStatus, vipDate: !currentVipStatus ? new Date() : null } : u));
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${uid}`);
-    } finally {
-      setIsActionLoading(false);
-    }
-  };
-
-  const handleUpdateUserCredits = async (uid: string, amount: number) => {
-    setIsActionLoading(true);
-    try {
-      await updateDoc(doc(db, 'users', uid), { credits: amount });
-      setUsers(users.map(u => u.uid === uid ? { ...u, credits: amount } : u));
-      setSelectedUser(null);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${uid}`);
-    } finally {
-      setIsActionLoading(false);
-    }
-  };
-
-  const handleUpdateUserMedals = async (uid: string, medals: string[]) => {
-    setIsActionLoading(true);
-    try {
-      await updateDoc(doc(db, 'users', uid), { medals });
-      setUsers(users.map(u => u.uid === uid ? { ...u, medals } : u));
-      setSelectedUserForMedals(null);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${uid}`);
-    } finally {
-      setIsActionLoading(false);
-    }
-  };
-
-  const handleDeleteUser = async (uid: string) => {
-    setIsActionLoading(true);
-    try {
-      await deleteDoc(doc(db, 'users', uid));
-      setUsers(users.filter(u => u.uid !== uid));
-      setUserToDelete(null);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `users/${uid}`);
-    } finally {
-      setIsActionLoading(false);
-    }
-  };
-
-  const handleSort = (key: keyof Order) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const sortedOrders = [...orders].sort((a, b) => {
-    if (!sortConfig) return 0;
-    const { key, direction } = sortConfig;
-    
-    let valA = a[key];
-    let valB = b[key];
-
-    if (key === 'createdAt') {
-      valA = a.createdAt?.seconds || 0;
-      valB = b.createdAt?.seconds || 0;
-    }
-
-    if (valA < valB) return direction === 'asc' ? -1 : 1;
-    if (valA > valB) return direction === 'asc' ? 1 : -1;
-    return 0;
-  });
-
-  const handleUpdateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
-    setIsActionLoading(true);
-    try {
-      await updateDoc(doc(db, 'orders', orderId), { status: newStatus });
-      setOrders(orders.map(o => o.orderId === orderId ? { ...o, status: newStatus } : o));
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `orders/${orderId}`);
-    } finally {
-      setIsActionLoading(false);
-    }
-  };
-
-  const handleCreateOrder = async () => {
-    if (!newOrder.userId || newOrder.totalAmount <= 0) {
-      showAlert('נא למלא את כל השדות החובה');
-      return;
-    }
-
-    setIsActionLoading(true);
-    try {
-      const orderId = Math.random().toString(36).substring(2, 11).toUpperCase();
-      const orderData: Order = {
-        orderId,
-        userId: newOrder.userId,
-        totalAmount: newOrder.totalAmount,
-        status: newOrder.status,
-        createdAt: serverTimestamp(),
-        items: newOrder.items.split(',').map(i => i.trim()).filter(i => i !== '')
-      };
-
-      await setDoc(doc(db, 'orders', orderId), orderData);
-      
-      // Refresh orders if on orders tab
-      if (activeTab === 'orders') {
-        fetchData();
-      }
-      
-      setShowCreateOrder(false);
-      setNewOrder({ userId: '', totalAmount: 0, status: 'pending', items: '' });
-      showAlert('הזמנה נוצרה בהצלחה');
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'orders');
-    } finally {
-      setIsActionLoading(false);
-    }
-  };
-
-  const handleCreateMission = async () => {
-    if (!newMission.title || !newMission.description) {
-      showAlert('נא למלא את כל השדות');
-      return;
-    }
-
-    setIsActionLoading(true);
-    try {
-      await addDoc(collection(db, 'weekly_missions'), {
-        ...newMission,
-        points: Number(newMission.points),
-        startDate: serverTimestamp(),
-        endDate: newMission.endDate ? new Date(newMission.endDate) : serverTimestamp()
-      });
-      setShowCreateMission(false);
-      setNewMission({ title: '', description: '', points: 10, endDate: '' });
-      fetchData();
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'weekly_missions');
-    } finally {
-      setIsActionLoading(false);
-    }
-  };
-
-  const handleDeleteMission = async (id: string) => {
-    setDeleteConfirmId(id);
-    setDeleteConfirmType('mission');
-  };
-
-  const confirmDeleteMission = async () => {
-    if (!deleteConfirmId) return;
-    setIsActionLoading(true);
-    try {
-      await deleteDoc(doc(db, 'weekly_missions', deleteConfirmId));
-      setMissions(missions.filter(m => m.id !== deleteConfirmId));
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `weekly_missions/${deleteConfirmId}`);
-    } finally {
-      setIsActionLoading(false);
-      setDeleteConfirmId(null);
-      setDeleteConfirmType(null);
-    }
-  };
-
-  const handleCreateSecretMission = async () => {
-    if (!newSecretMission.userId || !newSecretMission.title) {
-      showAlert('נא למלא את כל השדות');
-      return;
-    }
-
-    setIsActionLoading(true);
-    try {
-      await addDoc(collection(db, 'secret_missions'), {
-        ...newSecretMission,
-        status: 'assigned',
-        createdAt: serverTimestamp()
-      });
-      setShowCreateSecretMission(false);
-      setNewSecretMission({ userId: '', title: '', description: '', points: 50 });
-      fetchData();
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'secret_missions');
-    } finally {
-      setIsActionLoading(false);
-    }
-  };
-
-  const handleDeleteSecretMission = async (id: string) => {
-    setDeleteConfirmId(id);
-    setDeleteConfirmType('secret_mission');
-  };
-
-  const confirmDeleteSecretMission = async () => {
-    if (!deleteConfirmId) return;
-    setIsActionLoading(true);
-    try {
-      await deleteDoc(doc(db, 'secret_missions', deleteConfirmId));
-      setSecretMissions(secretMissions.filter(m => m.id !== deleteConfirmId));
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `secret_missions/${deleteConfirmId}`);
-    } finally {
-      setIsActionLoading(false);
-      setDeleteConfirmId(null);
-      setDeleteConfirmType(null);
-    }
-  };
-
-  const handleCreateUpdate = async () => {
-    if (!newUpdate.title || !newUpdate.description) {
-      showAlert('נא למלא את כל השדות');
-      return;
-    }
-
-    setIsActionLoading(true);
-    try {
-      await addDoc(collection(db, 'site_updates'), {
-        ...newUpdate,
-        createdAt: serverTimestamp()
-      });
-      setShowCreateUpdate(false);
-      setNewUpdate({
-        title: '',
-        description: '',
-        date: new Date().toISOString().split('T')[0],
-        type: 'feature'
-      });
-      fetchData();
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'site_updates');
-    } finally {
-      setIsActionLoading(false);
-    }
-  };
-
-  const handleDeleteUpdate = async (id: string) => {
-    if (window.confirm('האם אתה בטוח שברצונך למחוק עדכון זה?')) {
-      setIsActionLoading(true);
-      try {
-        await deleteDoc(doc(db, 'site_updates', id));
-        setUpdates(updates.filter(u => u.id !== id));
-      } catch (error) {
-        handleFirestoreError(error, OperationType.DELETE, `site_updates/${id}`);
-      } finally {
-        setIsActionLoading(false);
-      }
-    }
-  };
-
-  const handleSyncHistory = async () => {
-    if (!window.confirm('האם לסנכרן את היסטוריית הפיתוח של האתר? פעולה זו תוסיף את כל אבני הדרך המרכזיות שהוקמו עד כה.')) return;
-    
-    setIsSyncing(true);
-    const history = [
-      { title: 'השקת Byond Intima', description: 'גרסה ראשונה של האתר עלתה לאוויר עם דף בית מעוצב וקולקציית חוויות ראשונה.', date: '2026-01-01', type: 'feature' },
-      { title: 'מערכת The Journey', description: 'השקת המפה האינטראקטיבית למעקב אחר התקדמות הזוגיות.', date: '2026-01-15', type: 'feature' },
-      { title: 'אזור אישי וקרדיטים', description: 'הוספת דשבורד למשתמשים, צבירת נקודות, מדליות וניהול יתרה.', date: '2026-01-25', type: 'feature' },
-      { title: 'מרכז הידע (Knowledge Hub)', description: 'השקת מאגר המאמרים, הפודקאסטים והסרטונים המקצועיים.', date: '2026-02-05', type: 'feature' },
-      { title: 'משחקים וחידות', description: 'הוספת מערכת משחקים זוגיים, חידות יומיות והמלצות לסרטים.', date: '2026-02-12', type: 'feature' },
-      { title: 'עוזר זוגיות מבוסס AI', description: 'שילוב Gemini AI לשיחות ייעוץ ותמיכה בזמן אמת.', date: '2026-02-20', type: 'feature' },
-      { title: 'פאנל ניהול מתקדם', description: 'מערכת שליטה מלאה למנהלים על משתמשים, הזמנות ותוכן.', date: '2026-02-28', type: 'improvement' },
-      { title: 'Culinary Moments', description: 'אפשרות לשיתוף תמונות של רגעי בישול זוגיים.', date: '2026-03-05', type: 'feature' },
-      { title: 'Vision Board & Timeline', description: 'כלים לתכנון עתיד משותף ותיעוד זיכרונות היסטוריים.', date: '2026-03-10', type: 'feature' },
-      { title: 'מערכת התראות Push', description: 'עדכונים בזמן אמת על משימות חדשות והודעות מהשותף.', date: '2026-03-14', type: 'feature' },
-      { title: 'דף עדכוני אתר', description: 'השקת המערכת הנוכחית למעקב אחר שינויים באתר.', date: '2026-03-16', type: 'feature' }
-    ];
-
-    try {
-      for (const item of history) {
-        // Check if already exists to avoid duplicates
-        const q = query(collection(db, 'site_updates'), where('title', '==', item.title));
-        const existing = await getDocs(q);
-        if (existing.empty) {
-          await addDoc(collection(db, 'site_updates'), {
-            ...item,
-            createdAt: serverTimestamp()
-          });
-        }
-      }
-      showAlert('היסטוריית האתר סונכרנה בהצלחה!');
-      fetchData();
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'site_updates');
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  const handleExportCSV = () => {
-    let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // Add BOM for Hebrew support
-    
-    if (activeTab === 'users' || activeTab === 'premium') {
-      const dataToExport = activeTab === 'premium' ? users.filter(u => u.isVip) : users;
-      csvContent += "UID,Name,Email,Phone,Role,Status,Credits,VIP,VIP Date\n";
-      dataToExport.forEach(user => {
-        const vipDate = user.vipDate?.toDate ? user.vipDate.toDate?.()?.toLocaleDateString('he-IL') : (user.vipDate ? new Date(user.vipDate).toLocaleDateString('he-IL') : '');
-        const row = [
-          user.uid,
-          `"${user.displayName || ''}"`,
-          user.email,
-          user.phone || '',
-          user.role || 'user',
-          user.status || 'active',
-          user.credits || 0,
-          user.isVip ? 'Yes' : 'No',
-          vipDate
-        ].join(",");
-        csvContent += row + "\n";
-      });
-    } else if (activeTab === 'products') {
-      csvContent += "ID,Name,Category,Price,Image URL\n";
-      products.forEach(product => {
-        const row = [
-          product.id,
-          `"${product.name}"`,
-          product.category || '',
-          product.price,
-          product.image
-        ].join(",");
-        csvContent += row + "\n";
-      });
-    } else {
-      csvContent += "Order ID,User ID,Total Amount,Status,Date,Items\n";
-      orders.forEach(order => {
-        const date = order.createdAt?.toDate ? order.createdAt.toDate?.()?.toLocaleDateString('he-IL') : 'N/A';
-        const items = order.items ? `"${order.items.join(', ')}"` : '';
-        const row = [
-          order.orderId,
-          order.userId,
-          order.totalAmount,
-          order.status,
-          date,
-          items
-        ].join(",");
-        csvContent += row + "\n";
-      });
-    }
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `byond_${activeTab}_export_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleUpdateGlobalConfig = async () => {
-    setIsActionLoading(true);
-    try {
-      await setDoc(doc(db, 'site_content', 'global_config'), globalConfig);
-      showAlert('הגדרות האתר עודכנו בהצלחה');
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, 'site_content/global_config');
-    } finally {
-      setIsActionLoading(false);
-    }
-  };
-
-  const handleGlobalAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsActionLoading(true);
-    try {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const base64 = event.target?.result as string;
-        const storageRef = ref(storage, `site/global_avatar_${Date.now()}`);
-        await uploadString(storageRef, base64, 'data_url');
-        const downloadURL = await getDownloadURL(storageRef);
-        
-        setGlobalConfig(prev => ({ ...prev, globalAvatar: downloadURL }));
-        showAlert('תמונת האוואטר הועלתה בהצלחה');
-      };
-      reader.readAsDataURL(file);
-    } catch (error) {
-      console.error('Error uploading global avatar:', error);
-      showAlert('שגיאה בהעלאת התמונה');
-    } finally {
-      setIsActionLoading(false);
-    }
-  };
-
-  if (authLoading || !isAdmin) {
+  if (!isAdmin && !preview) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-brand-cream">
-        <Loader2 className="animate-spin text-brand-gold" size={48} />
+      <div className="min-h-screen bg-paper px-4 pt-32 text-ink">
+        <div className="mx-auto max-w-lg border-t-[3px] border-ink pt-6">
+          <h1 className="font-display text-6xl font-bold leading-none">פאנל ניהול</h1>
+          <p className="mt-4 text-lg">{user ? 'החשבון הזה אינו חשבון מנהלת.' : 'צריך להתחבר עם חשבון המנהלת כדי לנהל את החנות.'}</p>
+          <Link to="/login" className="mt-6 inline-block bg-ink px-5 py-3 font-bold text-paper hover:bg-spot">
+            {user ? 'להתחבר עם חשבון אחר' : 'להתחבר'}
+          </Link>
+        </div>
       </div>
     );
   }
 
-  const filteredUsers = users.filter(u => 
-    u.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    u.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const filteredOrders = sortedOrders.filter(o => 
-    o.orderId.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    o.userId.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const tabs: { id: Tab; label: string }[] = [
+    { id: 'products', label: 'מוצרים ומארזים' },
+    { id: 'orders', label: 'הזמנות' },
+    { id: 'messages', label: 'פניות' },
+    { id: 'season', label: 'העונה והמנוי' },
+  ];
 
   return (
-    <div className="min-h-screen bg-brand-cream pt-32 pb-20 px-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row items-center justify-between mb-12 gap-6">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-brand-gold/10 rounded-full flex items-center justify-center text-brand-gold">
-              <ShieldCheck size={28} />
-            </div>
-            <div>
-              <EditableText 
-                contentId="admin_title"
-                defaultText="פאנל ניהול"
-                as="h1"
-                className="text-3xl font-serif text-brand-black"
-              />
-              <p className="text-brand-black/40 text-xs uppercase tracking-widest">ניהול משתמשים והזמנות - Byond Intima</p>
-            </div>
+    <div className="min-h-screen bg-paper pt-16 text-ink md:pt-20">
+      {!isAdmin && preview && (
+        <p className="bg-spot px-4 py-2 text-center text-sm font-bold text-paper">תצוגה מקדימה בלבד (מחשב מקומי). כדי לשמור שינויים צריך להתחבר עם חשבון המנהלת.</p>
+      )}
+      <div className="mx-auto max-w-[1200px] px-4 pb-24 pt-8 md:px-8">
+        <header className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-sm font-bold text-spot">Byond Intima</p>
+            <h1 className="font-display text-[clamp(3.5rem,9vw,6.5rem)] font-bold leading-[0.85]">פאנל ניהול</h1>
           </div>
-          
-          <div className="flex bg-white border border-brand-gold/10 p-1 rounded-full relative">
-            <button 
-              onClick={() => setActiveTab('users')}
-              className={`px-8 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all relative z-10 ${activeTab === 'users' ? 'text-white' : 'text-brand-black/40 hover:text-brand-black'}`}
-            >
-              משתמשים
-            </button>
-            <button 
-              onClick={() => setActiveTab('premium')}
-              className={`px-8 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all relative z-10 ${activeTab === 'premium' ? 'text-white' : 'text-brand-black/40 hover:text-brand-black'}`}
-            >
-              מנויי פרימיום
-            </button>
-            <button 
-              onClick={() => setActiveTab('orders')}
-              className={`px-8 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all relative z-10 ${activeTab === 'orders' ? 'text-white' : 'text-brand-black/40 hover:text-brand-black'}`}
-            >
-              הזמנות
-            </button>
-            <button 
-              onClick={() => setActiveTab('products')}
-              className={`px-8 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all relative z-10 ${activeTab === 'products' ? 'text-white' : 'text-brand-black/40 hover:text-brand-black'}`}
-            >
-              מוצרים
-            </button>
-            <button 
-              onClick={() => setActiveTab('missions')}
-              className={`px-8 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all relative z-10 ${activeTab === 'missions' ? 'text-white' : 'text-brand-black/40 hover:text-brand-black'}`}
-            >
-              משימות
-            </button>
-            <button 
-              onClick={() => setActiveTab('secret_missions')}
-              className={`px-8 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all relative z-10 ${activeTab === 'secret_missions' ? 'text-white' : 'text-brand-black/40 hover:text-brand-black'}`}
-            >
-              סודיות
-            </button>
-            <button 
-              onClick={() => setActiveTab('feedback')}
-              className={`px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all relative z-10 ${activeTab === 'feedback' ? 'text-white' : 'text-brand-black/40 hover:text-brand-black'}`}
-            >
-              משוב
-            </button>
-            <button 
-              onClick={() => setActiveTab('updates')}
-              className={`px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all relative z-10 ${activeTab === 'updates' ? 'text-white' : 'text-brand-black/40 hover:text-brand-black'}`}
-            >
-              עדכונים
-            </button>
-            <button 
-              onClick={() => setActiveTab('site_content')}
-              className={`px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all relative z-10 ${activeTab === 'site_content' ? 'text-white' : 'text-brand-black/40 hover:text-brand-black'}`}
-            >
-              תוכן אתר
-            </button>
-            <button 
-              onClick={() => setActiveTab('config')}
-              className={`px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all relative z-10 ${activeTab === 'config' ? 'text-white' : 'text-brand-black/40 hover:text-brand-black'}`}
-            >
-              הגדרות
-            </button>
-            <motion.div 
-              layoutId="adminTabBg"
-              className="absolute inset-y-1 bg-brand-black rounded-full"
-              initial={false}
-              animate={{
-                left: activeTab === 'users' ? '0%' : 
-                      activeTab === 'premium' ? '8.33%' : 
-                      activeTab === 'orders' ? '16.66%' : 
-                      activeTab === 'products' ? '25%' : 
-                      activeTab === 'missions' ? '33.33%' : 
-                      activeTab === 'secret_missions' ? '41.66%' : 
-                      activeTab === 'feedback' ? '50%' : 
-                      activeTab === 'updates' ? '58.33%' : 
-                      activeTab === 'knowledge' ? '66.66%' : 
-                      activeTab === 'recipes' ? '75%' : 
-                      activeTab === 'site_content' ? '83.33%' : '91.66%',
-                width: '8.33%'
-              }}
-              transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-            />
+          <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm font-bold">
+            <Link to="/boutique" className="underline underline-offset-4 hover:text-spot">
+              לבוטיק באתר
+            </Link>
+            <Link to="/experience" className="underline underline-offset-4 hover:text-spot">
+              לדף המארזים
+            </Link>
+            <Link to="/admin/tools" className="underline underline-offset-4 hover:text-spot">
+              כלים נוספים (משתמשים, משימות, תוכן)
+            </Link>
           </div>
-          
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={handleExportCSV}
-              className="flex items-center gap-2 px-6 py-2 border border-brand-gold/20 text-brand-black rounded-full text-xs uppercase tracking-widest hover:bg-brand-gold/10 transition-all"
-            >
-              <Download size={16} />
-              ייצוא נתונים
-            </button>
-            {activeTab === 'products' && (
-              <div className="flex gap-2">
-                <button 
-                  onClick={async () => {
-                    if (window.confirm('האם לסנכרן את המוצרים מהקובץ ל-Firestore?')) {
-                      setIsSyncing(true);
-                      try {
-                        const experiencePackages = [
-                          {
-                            id: 'spark',
-                            name: 'DUSK (דמדומים)',
-                            tier: 'המארז הרגיל (Small)',
-                            description: 'הציתו מחדש את הסקרנות וההתרגשות הראשונית. מארז דמדומים הוא השער שלכם לעולם של חוויות זוגיות חדשות, מושלם לזוגות שרוצים להתחיל את המסע שלהם.',
-                            image: 'https://ais-pre-qty22ua7w7j2wcnrsvjwol-78550764035.europe-west3.run.app/assets/spark_package.jpg',
-                            price: 350,
-                            category: 'experience',
-                            focus: 'סקרנות, התחלה, חשמל באוויר.',
-                            difficulty: 'קל',
-                            avgTime: '2-3 שעות',
-                            hasIntimateTasks: true,
-                            hasCookingKit: true,
-                            hasCinemaAccess: true,
-                            hasAiGuide: false,
-                            atmosphereLevel: 'בסיסי',
-                            features: ["אתגר בישול זוגי", "קלפי משימות", "אתגר הסרטים האינטראקטיבי", "אתגר אמת או חובה", "חפש את המטמון", "אתגר אינטימי", "קלפי משימת בונוס", "מעטפה סודית לאזור האישי", "כרטיס גירוד מתנה"]
-                          },
-                          {
-                            id: 'velvet',
-                            name: 'MIDNIGHT (חצות)',
-                            tier: 'המארז הבינוני (Medium)',
-                            description: 'התמסרו למגע רך ועומק רגשי חסר פשרות. מארז חצות מעמיק את החיבור ביניכם עם חוויות חושניות ומרגשות יותר.',
-                            image: 'https://ais-pre-qty22ua7w7j2wcnrsvjwol-78550764035.europe-west3.run.app/assets/velvet_package.jpg',
-                            price: 450,
-                            category: 'experience',
-                            focus: 'חושניות, עומק, פינוק יוקרתי.',
-                            difficulty: 'בינוני',
-                            avgTime: '4-5 שעות',
-                            hasIntimateTasks: true,
-                            hasCookingKit: true,
-                            hasCinemaAccess: true,
-                            hasAiGuide: true,
-                            atmosphereLevel: 'מורחב',
-                            features: ["כל מה שיש במארז דמדומים", "קלפי משימות מורחבות", "אתגר בישול מתקדם", "מעטפה סודית", "משימה אינטימית", "2 כרטיסי גירוד", "מערכת ניקוד ופתיחת רמות"]
-                          },
-                          {
-                            id: 'ecstasy',
-                            name: 'UNTIL DAWN (עד אור הבוקר)',
-                            tier: 'המארז הגדול (Large)',
-                            description: 'שחררו כל רסן והגיעו לשיאים חדשים של ריגוש ושפע. המארז האולטימטיבי לזוגות שלא מפחדים לצלול לעומק ולחוות את הכל.',
-                            image: 'https://ais-pre-qty22ua7w7j2wcnrsvjwol-78550764035.europe-west3.run.app/assets/ecstasy_package.jpg',
-                            price: 650,
-                            category: 'experience',
-                            focus: 'שיא, שפע, ריגוש מקסימלי.',
-                            difficulty: 'מתקדם',
-                            avgTime: '6+ שעות',
-                            hasIntimateTasks: true,
-                            hasCookingKit: true,
-                            hasCinemaAccess: true,
-                            hasAiGuide: true,
-                            atmosphereLevel: 'פרימיום',
-                            features: ["כל מה שיש במארז חצות", "למעלה מ-300 קלפי חוויה ייחודיים", "משימת מטבח יוקרתית", "חבילת קלפי משימות מורחבים", "משימה אינטימית מורחבת", "מפתח לפתיחת עונה 2", "5 כרטיסי גירוד"]
-                          }
-                        ];
-                        for (const pkg of experiencePackages) {
-                          await setDoc(doc(db, 'products', pkg.id), pkg);
-                        }
-                        for (const product of boutiqueProducts) {
-                          await setDoc(doc(db, 'products', product.id), product);
-                        }
-                        showAlert('המוצרים סונכרנו בהצלחה!');
-                        fetchData();
-                      } catch (error) {
-                        handleFirestoreError(error, OperationType.CREATE, 'products');
-                      } finally {
-                        setIsSyncing(false);
-                      }
-                    }
-                  }}
-                  disabled={isSyncing}
-                  className="flex items-center gap-2 px-6 py-2 border border-brand-gold/20 text-brand-black rounded-full text-xs uppercase tracking-widest hover:bg-brand-gold/10 transition-all disabled:opacity-50"
+        </header>
+
+        <nav aria-label="אזורי הניהול" className="mt-6 overflow-x-auto border-y-[3px] border-ink">
+          <ul className="flex min-w-max">
+            {tabs.map((t) => (
+              <li key={t.id}>
+                <button
+                  onClick={() => setTab(t.id)}
+                  aria-current={tab === t.id ? 'page' : undefined}
+                  className={cn('px-5 py-3 text-lg font-bold transition-colors', tab === t.id ? 'bg-ink text-paper' : 'hover:text-spot')}
                 >
-                  <RefreshCcw size={16} className={isSyncing ? 'animate-spin' : ''} />
-                  סנכרן מוצרים
+                  {t.label}
                 </button>
-              </div>
-            )}
-            {activeTab === 'orders' && (
-              <button 
-                onClick={() => setShowCreateOrder(true)}
-                className="flex items-center gap-2 px-6 py-2 bg-brand-gold text-white rounded-full text-xs uppercase tracking-widest hover:bg-brand-black transition-all"
-              >
-                <Plus size={16} />
-                יצירת הזמנה
-              </button>
-            )}
-            {activeTab === 'missions' && (
-              <button 
-                onClick={() => setShowCreateMission(true)}
-                className="flex items-center gap-2 px-6 py-2 bg-brand-gold text-white rounded-full text-xs uppercase tracking-widest hover:bg-brand-black transition-all"
-              >
-                <Plus size={16} />
-                יצירת משימה
-              </button>
-            )}
-            {activeTab === 'updates' && (
-              <div className="flex gap-2">
-                <button 
-                  onClick={handleSyncHistory}
-                  disabled={isSyncing}
-                  className="flex items-center gap-2 px-6 py-2 border border-brand-gold/20 text-brand-black rounded-full text-xs uppercase tracking-widest hover:bg-brand-gold/10 transition-all disabled:opacity-50"
-                >
-                  <RefreshCcw size={16} className={isSyncing ? 'animate-spin' : ''} />
-                  סנכרן היסטוריה
-                </button>
-                <button 
-                  onClick={() => setShowCreateUpdate(true)}
-                  className="flex items-center gap-2 px-6 py-2 bg-brand-gold text-white rounded-full text-xs uppercase tracking-widest hover:bg-brand-black transition-all"
-                >
-                  <Plus size={16} />
-                  יצירת עדכון
-                </button>
-              </div>
-            )}
-          </div>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <div className="pt-8">
+          {tab === 'products' && <ProductsTab canWrite={canWrite} notify={notify} />}
+          {tab === 'orders' && <OrdersTab canWrite={canWrite} notify={notify} />}
+          {tab === 'messages' && <MessagesTab canWrite={canWrite} notify={notify} />}
+          {tab === 'season' && <SeasonTab canWrite={canWrite} notify={notify} />}
         </div>
-
-        <motion.div 
-          key={activeTab}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4 }}
-          className="bg-white border border-brand-gold/10 p-8 shadow-sm"
-        >
-          <div className="relative mb-8">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-black/30" size={20} />
-            <input 
-              type="text" 
-              placeholder={activeTab === 'users' || activeTab === 'premium' ? "חפש לפי שם או אימייל..." : "חפש לפי מספר הזמנה או מזהה משתמש..."}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-brand-cream/30 border border-brand-gold/10 py-4 pl-12 pr-6 font-serif text-lg outline-none focus:border-brand-gold transition-all"
-            />
-          </div>
-
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-4">
-              <Loader2 className="animate-spin text-brand-gold" size={40} />
-              <p className="text-brand-black/40 text-sm uppercase tracking-widest">טוען נתונים...</p>
-            </div>
-          ) : activeTab === 'config' ? (
-            <div className="max-w-2xl mx-auto py-10">
-              <div className="space-y-8">
-                <div className="flex items-center justify-between p-6 bg-brand-cream/30 border border-brand-gold/20 rounded-2xl">
-                  <div>
-                    <h3 className="font-serif text-xl text-brand-black mb-1">מצב עריכה (Edit Mode)</h3>
-                    <p className="text-xs text-brand-black/50">הפעלת מצב עריכה מאפשרת לשנות טקסטים ישירות על גבי המסכים השונים באתר.</p>
-                  </div>
-                  <button
-                    onClick={() => setIsEditMode(!isEditMode)}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isEditMode ? 'bg-brand-gold' : 'bg-brand-black/20'}`}
-                  >
-                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isEditMode ? '-translate-x-6' : '-translate-x-1'}`} />
-                  </button>
-                </div>
-
-                <div className="flex flex-col items-center gap-6 pb-8 border-b border-brand-gold/10">
-                  <div className="relative group">
-                    <div className="w-32 h-32 rounded-full overflow-hidden border-2 border-brand-gold/20 bg-brand-cream flex items-center justify-center">
-                      {globalConfig.globalAvatar ? (
-                        <img src={globalConfig.globalAvatar} alt="Global Avatar" className="w-full h-full object-cover" />
-                      ) : (
-                        <Settings size={48} className="text-brand-gold/30" />
-                      )}
-                    </div>
-                    <label className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-full">
-                      <Upload className="text-white" size={24} />
-                      <input type="file" className="hidden" accept="image/*" onChange={handleGlobalAvatarUpload} />
-                    </label>
-                  </div>
-                  <div className="text-center">
-                    <h3 className="font-serif text-xl text-brand-black">אוואטר גלובלי</h3>
-                    <p className="text-xs text-brand-black/40 uppercase tracking-widest mt-1">התמונה שתופיע כברירת מחדל לכל המשתמשים</p>
-                  </div>
-                </div>
-
-                <div className="grid gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest font-black text-brand-black/40">שם האתר</label>
-                    <input 
-                      type="text" 
-                      value={globalConfig.siteName}
-                      onChange={(e) => setGlobalConfig(prev => ({ ...prev, siteName: e.target.value }))}
-                      className="w-full bg-brand-cream/30 border border-brand-gold/10 py-3 px-4 font-serif outline-none focus:border-brand-gold transition-all"
-                      placeholder="למשל: Byond Intima"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest font-black text-brand-black/40">שם הקונסיירז' (ה-AI)</label>
-                    <input 
-                      type="text" 
-                      value={globalConfig.conciergeName}
-                      onChange={(e) => setGlobalConfig(prev => ({ ...prev, conciergeName: e.target.value }))}
-                      className="w-full bg-brand-cream/30 border border-brand-gold/10 py-3 px-4 font-serif outline-none focus:border-brand-gold transition-all"
-                      placeholder="למשל: אריאל"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest font-black text-brand-black/40">קישור לסרטון ברכה (AI Chat)</label>
-                    <input 
-                      type="text" 
-                      value={globalConfig.greetingVideoUrl}
-                      onChange={(e) => setGlobalConfig(prev => ({ ...prev, greetingVideoUrl: e.target.value }))}
-                      className="w-full bg-brand-cream/30 border border-brand-gold/10 py-3 px-4 font-serif outline-none focus:border-brand-gold transition-all"
-                      placeholder="למשל: https://example.com/video.mp4"
-                    />
-                    <p className="text-xs text-brand-black/50">הסרטון יוצג כהודעה ראשונה בצ'אט האישי. ניתן לשים קישור ל-YouTube או קובץ וידאו ישיר.</p>
-                  </div>
-                </div>
-
-                <div className="pt-6">
-                  <button 
-                    onClick={handleUpdateGlobalConfig}
-                    disabled={isActionLoading}
-                    className="w-full bg-brand-black text-white py-4 rounded-full text-xs uppercase tracking-[0.2em] font-black hover:bg-brand-gold transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {isActionLoading ? <Loader2 className="animate-spin" size={16} /> : 'שמור הגדרות גלובליות'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              {activeTab === 'users' || activeTab === 'premium' ? (
-                <table className="w-full text-right">
-                  <thead>
-                    <tr className="border-b border-brand-gold/10 text-[10px] uppercase tracking-[0.2em] text-brand-black/40">
-                      <th className="pb-4 font-medium">משתמש</th>
-                      {activeTab === 'premium' && <th className="pb-4 font-medium">טלפון</th>}
-                      <th className="pb-4 font-medium">סטטוס</th>
-                      {activeTab === 'premium' && <th className="pb-4 font-medium">תאריך מנוי</th>}
-                      <th className="pb-4 font-medium">קרדיטים</th>
-                      <th className="pb-4 font-medium">תפקיד</th>
-                      <th className="pb-4 font-medium text-left">פעולות</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-brand-gold/5">
-                    {(activeTab === 'premium' ? filteredUsers.filter(u => u.isVip) : filteredUsers).map(user => (
-                      <tr key={user.uid} className="group hover:bg-brand-cream/10 transition-colors">
-                        <td className="py-6">
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-full bg-brand-gold/10 flex items-center justify-center text-brand-gold font-serif">
-                              {user.displayName?.charAt(0) || 'U'}
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <p className="font-serif text-brand-black">{user.displayName || 'משתמש ללא שם'}</p>
-                                {user.isVip && (
-                                  <span className="bg-brand-gold/20 text-brand-gold text-[8px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-tighter flex items-center gap-0.5">
-                                    <Star size={8} className="fill-brand-gold" />
-                                    VIP
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-xs text-brand-black/40">{user.email}</p>
-                            </div>
-                          </div>
-                        </td>
-                        {activeTab === 'premium' && (
-                          <td className="py-6 text-xs text-brand-black/60">{user.phone || 'לא הוזן'}</td>
-                        )}
-                        <td className="py-6">
-                          <span className={`px-3 py-1 rounded-full text-[9px] uppercase tracking-widest font-bold ${user.status === 'disabled' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                            {user.status === 'disabled' ? 'מושבת' : 'פעיל'}
-                          </span>
-                        </td>
-                        {activeTab === 'premium' && (
-                          <td className="py-6 text-xs text-brand-black/60">
-                            {user.vipDate?.toDate ? user.vipDate.toDate?.()?.toLocaleDateString('he-IL') : (user.vipDate ? new Date(user.vipDate).toLocaleDateString('he-IL') : 'N/A')}
-                          </td>
-                        )}
-                        <td className="py-6">
-                          <div className="flex items-center gap-2">
-                            <span className="font-serif text-brand-gold">{user.credits || 0}</span>
-                            <button 
-                              onClick={() => setSelectedUser(user)}
-                              className="p-1 hover:text-brand-gold transition-colors"
-                            >
-                              <DollarSign size={14} />
-                            </button>
-                          </div>
-                        </td>
-                        <td className="py-6">
-                          <div className="flex items-center gap-2">
-                            <div className="flex -space-x-2 overflow-hidden">
-                              {user.medals?.slice(0, 3).map((medal, i) => (
-                                <div key={i} className="inline-block h-6 w-6 rounded-full ring-2 ring-white bg-brand-gold/10 flex items-center justify-center text-[10px]" title={medal}>
-                                  🏅
-                                </div>
-                              ))}
-                              {user.medals && user.medals.length > 3 && (
-                                <div className="inline-block h-6 w-6 rounded-full ring-2 ring-white bg-brand-black/5 flex items-center justify-center text-[8px] text-brand-black/40">
-                                  +{user.medals.length - 3}
-                                </div>
-                              )}
-                            </div>
-                            <button 
-                              onClick={() => setSelectedUserForMedals(user)}
-                              className="p-1 hover:text-brand-gold transition-colors"
-                              title="נהל מדליות"
-                            >
-                              <Plus size={14} />
-                            </button>
-                          </div>
-                        </td>
-                        <td className="py-6">
-                          <span className="text-[10px] uppercase tracking-widest text-brand-black/60">{user.role || 'user'}</span>
-                        </td>
-                        <td className="py-6 text-left">
-                          <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button 
-                              onClick={() => handleToggleVip(user.uid, !!user.isVip)}
-                              className={`p-2 rounded-full transition-all ${user.isVip ? 'bg-brand-gold/10 text-brand-gold hover:bg-brand-gold/20' : 'bg-brand-cream text-brand-black/40 hover:text-brand-gold'}`}
-                              title={user.isVip ? 'הסר VIP' : 'הפוך ל-VIP'}
-                            >
-                              <Star size={18} className={user.isVip ? 'fill-brand-gold' : ''} />
-                            </button>
-                            <button 
-                              onClick={() => handleUpdateUserStatus(user.uid, user.status === 'disabled' ? 'active' : 'disabled')}
-                              className={`p-2 rounded-full transition-all ${user.status === 'disabled' ? 'bg-green-50 text-green-600 hover:bg-green-100' : 'bg-orange-50 text-orange-600 hover:bg-orange-100'}`}
-                              title={user.status === 'disabled' ? 'הפעל חשבון' : 'השבת חשבון'}
-                            >
-                              {user.status === 'disabled' ? <CheckCircle size={18} /> : <Ban size={18} />}
-                            </button>
-                            <button 
-                              onClick={() => setUserToDelete(user)}
-                              className="p-2 bg-red-50 text-red-600 rounded-full hover:bg-red-100 transition-all"
-                              title="מחק משתמש"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : activeTab === 'missions' ? (
-                <table className="w-full text-right">
-                  <thead>
-                    <tr className="border-b border-brand-gold/10 text-[10px] uppercase tracking-[0.2em] text-brand-black/40">
-                      <th className="pb-4 font-medium">משימה</th>
-                      <th className="pb-4 font-medium">תיאור</th>
-                      <th className="pb-4 font-medium">נקודות</th>
-                      <th className="pb-4 font-medium">תאריך סיום</th>
-                      <th className="pb-4 font-medium text-left">פעולות</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-brand-gold/5">
-                    {missions.map(mission => (
-                      <tr key={mission.id} className="group hover:bg-brand-cream/10 transition-colors">
-                        <td className="py-6 font-serif text-brand-black">{mission.title}</td>
-                        <td className="py-6 text-xs text-brand-black/60 max-w-xs truncate">{mission.description}</td>
-                        <td className="py-6 font-serif text-brand-gold">{mission.points}</td>
-                        <td className="py-6 text-xs text-brand-black/40">
-                          {mission.endDate?.toDate ? mission.endDate.toDate?.()?.toLocaleDateString('he-IL') : 'N/A'}
-                        </td>
-                        <td className="py-6 text-left">
-                          <button 
-                            onClick={() => handleDeleteMission(mission.id)}
-                            className="p-2 bg-red-50 text-red-600 rounded-full hover:bg-red-100 transition-all opacity-0 group-hover:opacity-100"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : activeTab === 'secret_missions' ? (
-                <table className="w-full text-right">
-                  <thead>
-                    <tr className="border-b border-brand-gold/10 text-[10px] uppercase tracking-[0.2em] text-brand-black/40">
-                      <th className="pb-4 font-medium">משימה</th>
-                      <th className="pb-4 font-medium">משתמש</th>
-                      <th className="pb-4 font-medium">סטטוס</th>
-                      <th className="pb-4 font-medium">נקודות</th>
-                      <th className="pb-4 font-medium text-left">פעולות</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-brand-gold/5">
-                    {secretMissions.map(mission => (
-                      <tr key={mission.id} className="group hover:bg-brand-cream/10 transition-colors">
-                        <td className="py-6">
-                          <p className="font-serif text-brand-black">{mission.title}</p>
-                          <p className="text-[10px] text-brand-black/40">{mission.description}</p>
-                        </td>
-                        <td className="py-6 text-xs text-brand-black/60">{mission.userId}</td>
-                        <td className="py-6">
-                          <span className={`px-3 py-1 rounded-full text-[9px] uppercase tracking-widest font-bold ${mission.status === 'completed' ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
-                            {mission.status === 'completed' ? 'הושלם' : 'הוקצה'}
-                          </span>
-                        </td>
-                        <td className="py-6 font-serif text-brand-gold">{mission.points}</td>
-                        <td className="py-6 text-left">
-                          <button 
-                            onClick={() => handleDeleteSecretMission(mission.id)}
-                            className="p-2 bg-red-50 text-red-600 rounded-full hover:bg-red-100 transition-all opacity-0 group-hover:opacity-100"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : activeTab === 'feedback' ? (
-                <table className="w-full text-right">
-                  <thead>
-                    <tr className="border-b border-brand-gold/10 text-[10px] uppercase tracking-[0.2em] text-brand-black/40">
-                      <th className="pb-4 font-medium">עמוד / סעיף</th>
-                      <th className="pb-4 font-medium">משתמש</th>
-                      <th className="pb-4 font-medium">דירוג</th>
-                      <th className="pb-4 font-medium">תאריך</th>
-                      <th className="pb-4 font-medium text-left">פעולות</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-brand-gold/5">
-                    {feedback.map(item => (
-                      <tr key={item.id} className="group hover:bg-brand-cream/10 transition-colors">
-                        <td className="py-6">
-                          <p className="font-serif text-brand-black">{item.sectionTitle || item.sectionId}</p>
-                          <p className="text-[10px] text-brand-black/40">{item.pageId}</p>
-                        </td>
-                        <td className="py-6 text-xs text-brand-black/60">{item.userId}</td>
-                        <td className="py-6">
-                          <span className={`px-3 py-1 rounded-full text-[9px] uppercase tracking-widest font-bold ${item.rating === 'up' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                            {item.rating === 'up' ? 'מועיל' : 'לא מועיל'}
-                          </span>
-                        </td>
-                        <td className="py-6 text-xs text-brand-black/40">
-                          {item.timestamp?.toDate ? item.timestamp.toDate?.()?.toLocaleString('he-IL') : 'N/A'}
-                        </td>
-                        <td className="py-6 text-left">
-                          <button 
-                            onClick={async () => {
-                              if (window.confirm('האם אתה בטוח שברצונך למחוק משוב זה?')) {
-                                try {
-                                  await deleteDoc(doc(db, 'content_feedback', item.id));
-                                  setFeedback(feedback.filter(f => f.id !== item.id));
-                                } catch (error) {
-                                  handleFirestoreError(error, OperationType.DELETE, `content_feedback/${item.id}`);
-                                }
-                              }
-                            }}
-                            className="p-2 bg-red-50 text-red-600 rounded-full hover:bg-red-100 transition-all opacity-0 group-hover:opacity-100"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : activeTab === 'updates' ? (
-                <table className="w-full text-right">
-                  <thead>
-                    <tr className="border-b border-brand-gold/10 text-[10px] uppercase tracking-[0.2em] text-brand-black/40">
-                      <th className="pb-4 font-medium">עדכון</th>
-                      <th className="pb-4 font-medium">סוג</th>
-                      <th className="pb-4 font-medium">תאריך</th>
-                      <th className="pb-4 font-medium text-left">פעולות</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-brand-gold/5">
-                    {updates.map(update => (
-                      <tr key={update.id} className="group hover:bg-brand-cream/10 transition-colors">
-                        <td className="py-6">
-                          <p className="font-serif text-brand-black">{update.title}</p>
-                          <p className="text-[10px] text-brand-black/40 max-w-md truncate">{update.description}</p>
-                        </td>
-                        <td className="py-6">
-                          <span className={`px-3 py-1 rounded-full text-[9px] uppercase tracking-widest font-bold ${
-                            update.type === 'feature' ? 'bg-blue-100 text-blue-600' :
-                            update.type === 'improvement' ? 'bg-green-100 text-green-600' :
-                            update.type === 'fix' ? 'bg-red-100 text-red-600' :
-                            'bg-brand-gold/20 text-brand-gold'
-                          }`}>
-                            {update.type === 'feature' ? 'פיצ\'ר חדש' :
-                             update.type === 'improvement' ? 'שיפור' :
-                             update.type === 'fix' ? 'תיקון' : 'תוכנית לעתיד'}
-                          </span>
-                        </td>
-                        <td className="py-6 text-xs text-brand-black/40">
-                          {new Date(update.date).toLocaleDateString('he-IL')}
-                        </td>
-                        <td className="py-6 text-left">
-                          <button 
-                            onClick={() => handleDeleteUpdate(update.id)}
-                            className="p-2 bg-red-50 text-red-600 rounded-full hover:bg-red-100 transition-all opacity-0 group-hover:opacity-100"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : activeTab === 'site_content' ? (
-                <table className="w-full text-right">
-                  <thead>
-                    <tr className="border-b border-brand-gold/10 text-[10px] uppercase tracking-[0.2em] text-brand-black/40">
-                      <th className="pb-4 font-medium">מזהה תוכן</th>
-                      <th className="pb-4 font-medium">סוג</th>
-                      <th className="pb-4 font-medium">תצוגה מקדימה</th>
-                      <th className="pb-4 font-medium text-left">פעולות</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-brand-gold/5">
-                    {siteContent.map(content => (
-                      <tr key={content.id} className="group hover:bg-brand-cream/10 transition-colors">
-                        <td className="py-6 font-mono text-xs text-brand-black/60">{content.id}</td>
-                        <td className="py-6">
-                          <span className="px-3 py-1 bg-brand-gold/10 text-brand-gold rounded-full text-[9px] uppercase tracking-widest font-bold">
-                            {content.type || (content.id.includes('image') ? 'image' : 'text')}
-                          </span>
-                        </td>
-                        <td className="py-6 text-xs text-brand-black/60 max-w-xs truncate">
-                          {content.type === 'image' || content.id.includes('image') ? (
-                            <div className="w-12 h-12 rounded border border-brand-gold/10 overflow-hidden">
-                              <img src={content.text} alt={content.id} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                            </div>
-                          ) : (
-                            content.text
-                          )}
-                        </td>
-                        <td className="py-6 text-left">
-                          <button 
-                            onClick={async () => {
-                              if (window.confirm('האם למחוק תוכן זה?')) {
-                                try {
-                                  await deleteDoc(doc(db, 'site_content', content.id));
-                                  setSiteContent(siteContent.filter(c => c.id !== content.id));
-                                } catch (error) {
-                                  handleFirestoreError(error, OperationType.DELETE, `site_content/${content.id}`);
-                                }
-                              }
-                            }}
-                            className="p-2 bg-red-50 text-red-600 rounded-full hover:bg-red-100 transition-all opacity-0 group-hover:opacity-100"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : activeTab === 'products' ? (
-                <table className="w-full text-right">
-                  <thead>
-                    <tr className="border-b border-brand-gold/10 text-[10px] uppercase tracking-[0.2em] text-brand-black/40">
-                      <th className="pb-4 font-medium">תמונה</th>
-                      <th className="pb-4 font-medium">שם המוצר</th>
-                      <th className="pb-4 font-medium">קטגוריה</th>
-                      <th className="pb-4 font-medium text-center">מחיר</th>
-                      <th className="pb-4 font-medium text-left">פעולות</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-brand-gold/5">
-                    {products.filter(p => 
-                      p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                      p.category?.toLowerCase().includes(searchTerm.toLowerCase())
-                    ).map((product) => (
-                      <tr key={product.id} className="group hover:bg-brand-cream/10 transition-colors">
-                        <td className="py-6">
-                          <div className="w-12 h-12 rounded-lg overflow-hidden bg-brand-cream border border-brand-gold/10">
-                            <img src={product.image} alt={product.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                          </div>
-                        </td>
-                        <td className="py-6">
-                          <p className="font-serif text-brand-black">{product.name}</p>
-                          <p className="text-[10px] text-brand-black/40 uppercase tracking-widest">{product.id}</p>
-                        </td>
-                        <td className="py-6">
-                          <span className="px-3 py-1 bg-brand-gold/10 text-brand-gold rounded-full text-[9px] uppercase tracking-widest font-bold">
-                            {product.category}
-                          </span>
-                        </td>
-                        <td className="py-6 text-center font-serif text-brand-gold">₪{product.price}</td>
-                        <td className="py-6 text-left">
-                          <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button 
-                              onClick={() => {
-                                if (window.confirm('האם למחוק מוצר זה?')) {
-                                  deleteDoc(doc(db, 'products', product.id))
-                                    .then(() => {
-                                      setProducts(products.filter(p => p.id !== product.id));
-                                      showAlert('מוצר נמחק בהצלחה');
-                                    })
-                                    .catch(err => handleFirestoreError(err, OperationType.DELETE, `products/${product.id}`));
-                                }
-                              }}
-                              className="p-2 bg-red-50 text-red-600 rounded-full hover:bg-red-100 transition-all"
-                              title="מחק מוצר"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <table className="w-full text-right">
-                  <thead>
-                    <tr className="border-b border-brand-gold/10 text-[10px] uppercase tracking-[0.2em] text-brand-black/40">
-                      <th 
-                        className="pb-4 font-medium cursor-pointer hover:text-brand-gold transition-colors"
-                        onClick={() => handleSort('orderId')}
-                      >
-                        מספר הזמנה {sortConfig?.key === 'orderId' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                      </th>
-                      <th className="pb-4 font-medium">משתמש</th>
-                      <th 
-                        className="pb-4 font-medium cursor-pointer hover:text-brand-gold transition-colors"
-                        onClick={() => handleSort('totalAmount')}
-                      >
-                        סכום {sortConfig?.key === 'totalAmount' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                      </th>
-                      <th 
-                        className="pb-4 font-medium cursor-pointer hover:text-brand-gold transition-colors"
-                        onClick={() => handleSort('status')}
-                      >
-                        סטטוס {sortConfig?.key === 'status' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                      </th>
-                      <th className="pb-4 font-medium text-right">תאריך יצירה</th>
-                      <th className="pb-4 font-medium text-left">פעולות</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-brand-gold/5">
-                    {filteredOrders.map(order => (
-                      <React.Fragment key={order.orderId}>
-                        <tr 
-                          className="group hover:bg-brand-cream/10 transition-colors cursor-pointer"
-                          onClick={() => setExpandedOrderId(expandedOrderId === order.orderId ? null : order.orderId)}
-                        >
-                          <td className="py-6 font-mono text-xs text-brand-black/60">
-                            <div className="flex items-center gap-2">
-                              <ChevronRight size={14} className={`transition-transform ${expandedOrderId === order.orderId ? 'rotate-90' : ''}`} />
-                              #{order.orderId}
-                            </div>
-                          </td>
-                          <td className="py-6 text-xs text-brand-black/60">{order.userId}</td>
-                          <td className="py-6 font-serif text-brand-gold">₪{order.totalAmount}</td>
-                          <td className="py-6">
-                            <span className={`px-3 py-1 rounded-full text-[9px] uppercase tracking-widest font-bold ${
-                              order.status === 'completed' ? 'bg-green-100 text-green-600' :
-                              order.status === 'cancelled' ? 'bg-red-100 text-red-600' :
-                              order.status === 'refunded' ? 'bg-orange-100 text-orange-600' :
-                              'bg-blue-100 text-blue-600'
-                            }`}>
-                              {order.status === 'completed' ? 'הושלם' :
-                               order.status === 'cancelled' ? 'בוטל' :
-                               order.status === 'refunded' ? 'זוכה' : 'ממתין'}
-                            </span>
-                          </td>
-                          <td className="py-6 text-xs text-brand-black/40 text-right">
-                            {order.createdAt?.toDate ? order.createdAt.toDate?.()?.toLocaleDateString('he-IL', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            }) : 'N/A'}
-                          </td>
-                          <td className="py-6 text-left">
-                            <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                              <button 
-                                onClick={() => handleUpdateOrderStatus(order.orderId, 'completed')}
-                                className="p-2 bg-green-50 text-green-600 rounded-full hover:bg-green-100 transition-all"
-                                title="סמן כהושלם"
-                              >
-                                <CheckCircle size={18} />
-                              </button>
-                              <button 
-                                onClick={() => handleUpdateOrderStatus(order.orderId, 'refunded')}
-                                className="p-2 bg-orange-50 text-orange-600 rounded-full hover:bg-orange-100 transition-all"
-                                title="בצע זיכוי"
-                              >
-                                <RefreshCcw size={18} />
-                              </button>
-                              <button 
-                                onClick={() => handleUpdateOrderStatus(order.orderId, 'cancelled')}
-                                className="p-2 bg-red-50 text-red-600 rounded-full hover:bg-red-100 transition-all"
-                                title="בטל הזמנה"
-                              >
-                                <Trash2 size={18} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                        {expandedOrderId === order.orderId && (
-                          <tr className="bg-brand-cream/5 border-b border-brand-gold/10">
-                            <td colSpan={6} className="p-6">
-                              <div className="grid md:grid-cols-2 gap-8 text-right">
-                                <div>
-                                  <h5 className="text-xs font-bold uppercase tracking-widest text-brand-black/60 mb-4">פרטי לקוח</h5>
-                                  {(() => {
-                                    const customer = users.find(u => u.uid === order.userId);
-                                    return customer ? (
-                                      <div className="space-y-2 text-sm text-brand-black/80">
-                                        <p><span className="font-medium">שם:</span> {customer.displayName || 'לא צוין'}</p>
-                                        <p><span className="font-medium">אימייל:</span> {customer.email}</p>
-                                        <p><span className="font-medium">טלפון:</span> {customer.phone || 'לא צוין'}</p>
-                                        <p><span className="font-medium">כתובת:</span> {customer.address || 'לא צוין'}</p>
-                                      </div>
-                                    ) : (
-                                      <p className="text-sm text-brand-black/40 italic">פרטי לקוח לא נמצאו</p>
-                                    );
-                                  })()}
-                                </div>
-                                <div>
-                                  <h5 className="text-xs font-bold uppercase tracking-widest text-brand-black/60 mb-4">פריטים בהזמנה</h5>
-                                  {order.items && order.items.length > 0 ? (
-                                    <ul className="list-disc list-inside space-y-1 text-sm text-brand-black/80">
-                                      {order.items.map((item, idx) => (
-                                        <li key={idx}>
-                                          {typeof item === 'string' ? item : (item.name || JSON.stringify(item))}
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  ) : (
-                                    <p className="text-sm text-brand-black/40 italic">אין פירוט פריטים</p>
-                                  )}
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-
-              {((activeTab === 'users' && filteredUsers.length === 0) || (activeTab === 'premium' && filteredUsers.filter(u => u.isVip).length === 0) || (activeTab === 'orders' && filteredOrders.length === 0)) && (
-                <div className="text-center py-20">
-                  <AlertCircle className="mx-auto text-brand-gold/20 mb-4" size={48} />
-                  <p className="text-brand-black/40 text-sm uppercase tracking-widest">לא נמצאו תוצאות</p>
-                </div>
-              )}
-            </div>
-          )}
-        </motion.div>
       </div>
 
-      {/* Secret Mission Creation Modal */}
-      <AnimatePresence>
-        {showCreateSecretMission && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }}
-              onClick={() => setShowCreateSecretMission(false)}
-              className="absolute inset-0 bg-brand-black/60 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-md bg-white p-8 shadow-2xl text-right"
-            >
-              <h3 className="text-2xl font-serif mb-6">יצירת משימה סודית חדשה</h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-brand-black/40 mb-2">מזהה משתמש (UID)</label>
-                  <input 
-                    type="text" 
-                    value={newSecretMission.userId}
-                    onChange={(e) => setNewSecretMission({ ...newSecretMission, userId: e.target.value })}
-                    className="w-full bg-brand-cream/30 border border-brand-gold/10 p-3 font-serif outline-none focus:border-brand-gold text-right"
-                    placeholder="הזן UID של המשתמש"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-brand-black/40 mb-2">כותרת המשימה</label>
-                  <input 
-                    type="text" 
-                    value={newSecretMission.title}
-                    onChange={(e) => setNewSecretMission({ ...newSecretMission, title: e.target.value })}
-                    className="w-full bg-brand-cream/30 border border-brand-gold/10 p-3 font-serif outline-none focus:border-brand-gold text-right"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-brand-black/40 mb-2">תיאור המשימה</label>
-                  <textarea 
-                    value={newSecretMission.description}
-                    onChange={(e) => setNewSecretMission({ ...newSecretMission, description: e.target.value })}
-                    className="w-full bg-brand-cream/30 border border-brand-gold/10 p-3 font-serif outline-none focus:border-brand-gold text-right min-h-[100px]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-brand-black/40 mb-2">נקודות</label>
-                  <input 
-                    type="number" 
-                    value={newSecretMission.points}
-                    onChange={(e) => setNewSecretMission({ ...newSecretMission, points: parseInt(e.target.value) })}
-                    className="w-full bg-brand-cream/30 border border-brand-gold/10 p-3 font-serif outline-none focus:border-brand-gold text-right"
-                  />
-                </div>
-
-                <div className="flex gap-4 pt-6">
-                  <button 
-                    onClick={() => setShowCreateSecretMission(false)}
-                    className="flex-1 py-4 border border-brand-gold/20 text-[10px] uppercase tracking-widest hover:bg-brand-cream transition-all"
-                  >
-                    ביטול
-                  </button>
-                  <button 
-                    onClick={handleCreateSecretMission}
-                    disabled={isActionLoading}
-                    className="flex-1 py-4 bg-brand-black text-white text-[10px] uppercase tracking-widest hover:bg-brand-gold transition-all flex items-center justify-center gap-2"
-                  >
-                    {isActionLoading && <Loader2 className="animate-spin" size={14} />}
-                    צור משימה סודית
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
+      <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-20 z-[130] flex justify-center px-4 lg:bottom-6">
+        {notify.notice && (
+          <p className={cn('pointer-events-auto border-[3px] border-ink px-5 py-3 font-bold shadow-[6px_6px_0_var(--color-ink)]', notify.notice.tone === 'ok' ? 'bg-paper' : 'bg-spot text-paper')}>
+            {notify.notice.text}
+          </p>
         )}
-      </AnimatePresence>
-
-      {/* Mission Creation Modal */}
-      <AnimatePresence>
-        {showCreateMission && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }}
-              onClick={() => setShowCreateMission(false)}
-              className="absolute inset-0 bg-brand-black/60 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-md bg-white p-8 shadow-2xl text-right"
-            >
-              <h3 className="text-2xl font-serif mb-6">יצירת משימה שבועית חדשה</h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-brand-black/40 mb-2">כותרת המשימה</label>
-                  <input 
-                    type="text" 
-                    value={newMission.title}
-                    onChange={(e) => setNewMission({ ...newMission, title: e.target.value })}
-                    className="w-full bg-brand-cream/30 border border-brand-gold/10 p-3 font-serif outline-none focus:border-brand-gold text-right"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-brand-black/40 mb-2">תיאור המשימה</label>
-                  <textarea 
-                    value={newMission.description}
-                    onChange={(e) => setNewMission({ ...newMission, description: e.target.value })}
-                    className="w-full bg-brand-cream/30 border border-brand-gold/10 p-3 font-serif outline-none focus:border-brand-gold text-right min-h-[100px]"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-brand-black/40 mb-2">נקודות</label>
-                    <input 
-                      type="number" 
-                      value={newMission.points}
-                      onChange={(e) => setNewMission({ ...newMission, points: parseInt(e.target.value) })}
-                      className="w-full bg-brand-cream/30 border border-brand-gold/10 p-3 font-serif outline-none focus:border-brand-gold text-right"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-brand-black/40 mb-2">תאריך סיום</label>
-                    <input 
-                      type="date" 
-                      value={newMission.endDate}
-                      onChange={(e) => setNewMission({ ...newMission, endDate: e.target.value })}
-                      className="w-full bg-brand-cream/30 border border-brand-gold/10 p-3 font-serif outline-none focus:border-brand-gold text-right"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-4 pt-6">
-                  <button 
-                    onClick={() => setShowCreateMission(false)}
-                    className="flex-1 py-4 border border-brand-gold/20 text-[10px] uppercase tracking-widest hover:bg-brand-cream transition-all"
-                  >
-                    ביטול
-                  </button>
-                  <button 
-                    onClick={handleCreateMission}
-                    disabled={isActionLoading}
-                    className="flex-1 py-4 bg-brand-black text-white text-[10px] uppercase tracking-widest hover:bg-brand-gold transition-all flex items-center justify-center gap-2"
-                  >
-                    {isActionLoading && <Loader2 className="animate-spin" size={14} />}
-                    צור משימה
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Credit Update Modal */}
-      <AnimatePresence>
-        {selectedUser && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }}
-              onClick={() => setSelectedUser(null)}
-              className="absolute inset-0 bg-brand-black/60 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-md bg-white p-8 shadow-2xl"
-            >
-              <h3 className="text-2xl font-serif mb-2">עדכון קרדיטים</h3>
-              <p className="text-xs text-brand-black/40 uppercase tracking-widest mb-8">עדכון יתרה עבור {selectedUser.displayName || selectedUser.email}</p>
-              
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-brand-black/40 mb-2">יתרה נוכחית</label>
-                  <p className="text-2xl font-serif text-brand-gold">{selectedUser.credits || 0}</p>
-                </div>
-                
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-brand-black/40 mb-2">יתרה חדשה</label>
-                  <input 
-                    type="number" 
-                    defaultValue={selectedUser.credits || 0}
-                    id="new-credits"
-                    className="w-full bg-brand-cream/30 border border-brand-gold/10 p-4 font-serif text-xl outline-none focus:border-brand-gold"
-                  />
-                </div>
-
-                <div className="flex gap-4 pt-4">
-                  <button 
-                    onClick={() => setSelectedUser(null)}
-                    className="flex-1 py-4 border border-brand-gold/20 text-[10px] uppercase tracking-widest hover:bg-brand-cream transition-all"
-                  >
-                    ביטול
-                  </button>
-                  <button 
-                    onClick={() => {
-                      const input = document.getElementById('new-credits') as HTMLInputElement;
-                      handleUpdateUserCredits(selectedUser.uid, parseInt(input.value));
-                    }}
-                    className="flex-1 py-4 bg-brand-black text-white text-[10px] uppercase tracking-widest hover:bg-brand-gold transition-all"
-                  >
-                    עדכן יתרה
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Medals Management Modal */}
-      <AnimatePresence>
-        {selectedUserForMedals && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }}
-              onClick={() => setSelectedUserForMedals(null)}
-              className="absolute inset-0 bg-brand-black/60 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-md bg-white p-8 shadow-2xl"
-            >
-              <h3 className="text-2xl font-serif mb-2 text-right">ניהול מדליות</h3>
-              <p className="text-xs text-brand-black/40 uppercase tracking-widest mb-8 text-right">הענק או הסר מדליות עבור {selectedUserForMedals.displayName || selectedUserForMedals.email}</p>
-              
-              <div className="space-y-6 text-right">
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-brand-black/40 mb-4">מדליות קיימות</label>
-                  <div className="flex flex-wrap gap-2 justify-end">
-                    {selectedUserForMedals.medals?.length ? selectedUserForMedals.medals.map((medal, i) => (
-                      <div key={i} className="flex items-center gap-2 bg-brand-gold/10 text-brand-gold px-3 py-1.5 rounded-full text-xs font-bold">
-                        <span>{medal}</span>
-                        <button 
-                          onClick={() => {
-                            const newMedals = selectedUserForMedals.medals?.filter((_, index) => index !== i) || [];
-                            handleUpdateUserMedals(selectedUserForMedals.uid, newMedals);
-                          }}
-                          className="hover:text-red-500 transition-colors"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    )) : (
-                      <p className="text-xs text-brand-black/20 italic">אין מדליות עדיין</p>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="pt-4 border-t border-brand-gold/10">
-                  <label className="block text-[10px] uppercase tracking-widest text-brand-black/40 mb-2">הענק מדליה חדשה</label>
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => {
-                        const input = document.getElementById('new-medal') as HTMLInputElement;
-                        if (!input.value.trim()) return;
-                        const newMedals = [...(selectedUserForMedals.medals || []), input.value.trim()];
-                        handleUpdateUserMedals(selectedUserForMedals.uid, newMedals);
-                        input.value = '';
-                      }}
-                      className="bg-brand-black text-white px-4 py-2 rounded-lg text-xs uppercase tracking-widest hover:bg-brand-gold transition-all"
-                    >
-                      הוסף
-                    </button>
-                    <input 
-                      type="text" 
-                      id="new-medal"
-                      placeholder="שם המדליה (לדוגמה: 🏅 אלוף הבישול)"
-                      className="flex-1 bg-brand-cream/30 border border-brand-gold/10 p-3 font-serif outline-none focus:border-brand-gold text-right"
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          const input = e.currentTarget;
-                          if (!input.value.trim()) return;
-                          const newMedals = [...(selectedUserForMedals.medals || []), input.value.trim()];
-                          handleUpdateUserMedals(selectedUserForMedals.uid, newMedals);
-                          input.value = '';
-                        }
-                      }}
-                    />
-                  </div>
-                  <div className="mt-4 flex flex-wrap gap-2 justify-end">
-                    {['🏅 אלוף', '⭐ VIP', '🔥 פעיל', '💎 יוקרתי'].map(preset => (
-                      <button
-                        key={preset}
-                        onClick={() => {
-                          const newMedals = [...(selectedUserForMedals.medals || []), preset];
-                          handleUpdateUserMedals(selectedUserForMedals.uid, newMedals);
-                        }}
-                        className="text-[10px] bg-brand-cream px-2 py-1 rounded border border-brand-gold/10 hover:bg-brand-gold/10 transition-colors"
-                      >
-                        {preset}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="pt-4">
-                  <button 
-                    onClick={() => setSelectedUserForMedals(null)}
-                    className="w-full py-4 border border-brand-gold/20 text-[10px] uppercase tracking-widest hover:bg-brand-cream transition-all"
-                  >
-                    סגור
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Delete Confirmation Modal */}
-      <AnimatePresence>
-        {userToDelete && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }}
-              onClick={() => setUserToDelete(null)}
-              className="absolute inset-0 bg-brand-black/60 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-md bg-white p-8 shadow-2xl text-right"
-            >
-              <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                <AlertCircle size={32} />
-              </div>
-              <h3 className="text-2xl font-serif mb-2">מחיקת משתמש</h3>
-              <p className="text-sm text-brand-black/60 mb-8">
-                האם אתה בטוח שברצונך למחוק את <strong>{userToDelete.displayName || userToDelete.email}</strong>? 
-                פעולה זו אינה ניתנת לביטול וכל הנתונים הקשורים למשתמש יימחקו לצמיתות.
-              </p>
-              
-              <div className="flex gap-4">
-                <button 
-                  onClick={() => setUserToDelete(null)}
-                  className="flex-1 py-4 border border-brand-gold/20 text-[10px] uppercase tracking-widest hover:bg-brand-cream transition-all"
-                >
-                  ביטול
-                </button>
-                <button 
-                  onClick={() => handleDeleteUser(userToDelete.uid)}
-                  className="flex-1 py-4 bg-red-600 text-white text-[10px] uppercase tracking-widest hover:bg-red-700 transition-all"
-                >
-                  מחק לצמיתות
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Create Update Modal */}
-      <AnimatePresence>
-        {showCreateUpdate && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }}
-              onClick={() => setShowCreateUpdate(false)}
-              className="absolute inset-0 bg-brand-black/60 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-md bg-white p-8 shadow-2xl text-right"
-            >
-              <h3 className="text-2xl font-serif mb-6">יצירת עדכון חדש</h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-brand-black/40 mb-2">כותרת העדכון</label>
-                  <input 
-                    type="text" 
-                    value={newUpdate.title}
-                    onChange={(e) => setNewUpdate({ ...newUpdate, title: e.target.value })}
-                    className="w-full bg-brand-cream/30 border border-brand-gold/10 p-3 font-serif outline-none focus:border-brand-gold text-right"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-brand-black/40 mb-2">תיאור העדכון</label>
-                  <textarea 
-                    value={newUpdate.description}
-                    onChange={(e) => setNewUpdate({ ...newUpdate, description: e.target.value })}
-                    className="w-full bg-brand-cream/30 border border-brand-gold/10 p-3 font-serif outline-none focus:border-brand-gold text-right min-h-[100px]"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-brand-black/40 mb-2">סוג עדכון</label>
-                    <select 
-                      value={newUpdate.type}
-                      onChange={(e) => setNewUpdate({ ...newUpdate, type: e.target.value as any })}
-                      className="w-full bg-brand-cream/30 border border-brand-gold/10 p-3 font-serif outline-none focus:border-brand-gold text-right"
-                    >
-                      <option value="feature">פיצ'ר חדש</option>
-                      <option value="improvement">שיפור</option>
-                      <option value="fix">תיקון באג</option>
-                      <option value="roadmap">תוכנית לעתיד</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-brand-black/40 mb-2">תאריך</label>
-                    <input 
-                      type="date" 
-                      value={newUpdate.date}
-                      onChange={(e) => setNewUpdate({ ...newUpdate, date: e.target.value })}
-                      className="w-full bg-brand-cream/30 border border-brand-gold/10 p-3 font-serif outline-none focus:border-brand-gold text-right"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-4 pt-6">
-                  <button 
-                    onClick={() => setShowCreateUpdate(false)}
-                    className="flex-1 py-4 border border-brand-gold/20 text-[10px] uppercase tracking-widest hover:bg-brand-cream transition-all"
-                  >
-                    ביטול
-                  </button>
-                  <button 
-                    onClick={handleCreateUpdate}
-                    disabled={isActionLoading}
-                    className="flex-1 py-4 bg-brand-black text-white text-[10px] uppercase tracking-widest hover:bg-brand-gold transition-all flex items-center justify-center gap-2"
-                  >
-                    {isActionLoading && <Loader2 className="animate-spin" size={14} />}
-                    צור עדכון
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Create Order Modal */}
-      <AnimatePresence>
-        {showCreateOrder && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }}
-              onClick={() => setShowCreateOrder(false)}
-              className="absolute inset-0 bg-brand-black/60 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-md bg-white p-8 shadow-2xl"
-            >
-              <h3 className="text-2xl font-serif mb-2 text-right">יצירת הזמנה ידנית</h3>
-              <p className="text-xs text-brand-black/40 uppercase tracking-widest mb-8 text-right">הזן פרטי הזמנה חדשה עבור משתמש</p>
-              
-              <div className="space-y-4 text-right">
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-brand-black/40 mb-2">מזהה משתמש (UID)</label>
-                  <input 
-                    type="text" 
-                    value={newOrder.userId}
-                    onChange={(e) => setNewOrder({...newOrder, userId: e.target.value})}
-                    placeholder="הזן UID של המשתמש"
-                    className="w-full bg-brand-cream/30 border border-brand-gold/10 p-3 font-serif outline-none focus:border-brand-gold text-right"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-brand-black/40 mb-2">סכום כולל (₪)</label>
-                  <input 
-                    type="number" 
-                    value={newOrder.totalAmount}
-                    onChange={(e) => setNewOrder({...newOrder, totalAmount: parseFloat(e.target.value)})}
-                    className="w-full bg-brand-cream/30 border border-brand-gold/10 p-3 font-serif outline-none focus:border-brand-gold text-right"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-brand-black/40 mb-2">סטטוס</label>
-                  <select 
-                    value={newOrder.status}
-                    onChange={(e) => setNewOrder({...newOrder, status: e.target.value as Order['status']})}
-                    className="w-full bg-brand-cream/30 border border-brand-gold/10 p-3 font-serif outline-none focus:border-brand-gold text-right"
-                  >
-                    <option value="pending">ממתין</option>
-                    <option value="completed">הושלם</option>
-                    <option value="cancelled">בוטל</option>
-                    <option value="refunded">זוכה</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-brand-black/40 mb-2">פריטים (מופרדים בפסיק)</label>
-                  <textarea 
-                    value={newOrder.items}
-                    onChange={(e) => setNewOrder({...newOrder, items: e.target.value})}
-                    placeholder="לדוגמה: מארז פלטינום, נרות, שוקולד"
-                    className="w-full bg-brand-cream/30 border border-brand-gold/10 p-3 font-serif outline-none focus:border-brand-gold text-right h-24"
-                  />
-                </div>
-
-                <div className="flex gap-4 pt-4">
-                  <button 
-                    onClick={() => setShowCreateOrder(false)}
-                    className="flex-1 py-4 border border-brand-gold/20 text-[10px] uppercase tracking-widest hover:bg-brand-cream transition-all"
-                  >
-                    ביטול
-                  </button>
-                  <button 
-                    onClick={handleCreateOrder}
-                    className="flex-1 py-4 bg-brand-black text-white text-[10px] uppercase tracking-widest hover:bg-brand-gold transition-all"
-                  >
-                    צור הזמנה
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Global Action Loader */}
-      <AnimatePresence>
-        {isActionLoading && (
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[300] bg-white/50 backdrop-blur-[2px] flex items-center justify-center"
-          >
-            <Loader2 className="animate-spin text-brand-gold" size={48} />
-          </motion.div>
-        )}
-      </AnimatePresence>
-      {/* Delete Confirmation Modal */}
-      <AnimatePresence>
-        {deleteConfirmId && deleteConfirmType && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl"
-            >
-              <h3 className="text-2xl font-serif mb-4 text-brand-black">מחיקת משימה</h3>
-              <p className="text-brand-black/60 mb-8">האם אתם בטוחים שברצונכם למחוק משימה זו? פעולה זו אינה הפיכה.</p>
-              <div className="flex gap-4">
-                <button
-                  onClick={() => {
-                    setDeleteConfirmId(null);
-                    setDeleteConfirmType(null);
-                  }}
-                  className="flex-1 py-3 bg-brand-cream text-brand-black rounded-full font-bold uppercase tracking-widest text-xs hover:bg-brand-gold/10 transition-colors"
-                >
-                  ביטול
-                </button>
-                <button
-                  onClick={deleteConfirmType === 'mission' ? confirmDeleteMission : confirmDeleteSecretMission}
-                  className="flex-1 py-3 bg-red-500 text-white rounded-full font-bold uppercase tracking-widest text-xs hover:bg-red-600 transition-colors"
-                >
-                  מחיקה
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      </div>
     </div>
   );
 };

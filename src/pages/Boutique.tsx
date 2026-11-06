@@ -10,12 +10,7 @@ import { useFirebase } from '../contexts/FirebaseContext';
 import { useAlert } from '../components/AlertModal';
 import { Ticket } from '../components/season/Ticket';
 import { cn } from '../lib/utils';
-import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, onSnapshot, query } from 'firebase/firestore';
-import { boutiqueProducts } from '../data/boutique';
-import { BOX_IDS, SUBSCRIPTION } from '../data/season';
-
-type Product = (typeof boutiqueProducts)[number] & Record<string, any>;
+import { type Product, memberPriceFor, useCatalogue, useSeasonSettings, visible } from '../lib/catalogue';
 
 const CATEGORIES = [
   { id: 'all', he: 'הכל', en: 'All' },
@@ -29,28 +24,6 @@ const CATEGORIES = [
   { id: 'premium', he: 'למנויים בלבד', en: 'Members only' },
 ] as const;
 
-/** Firestore products win (the admin can edit them), the code catalogue fills gaps, and the three boxes keep their approved names. */
-const mergeCatalogue = (remote: Product[]): Product[] => {
-  const byId = new Map<string, Product>(boutiqueProducts.map((p) => [p.id, p as Product]));
-  for (const r of remote) {
-    const local = byId.get(r.id);
-    const merged = { ...(local ?? {}), ...r } as Product;
-    // Old seeded stock photos in Firestore point at removed Unsplash images;
-    // keep the verified local photo unless the admin uploaded their own.
-    if (local?.image && (!r.image || r.image.includes('images.unsplash.com'))) merged.image = local.image;
-    byId.set(r.id, merged);
-  }
-  for (const id of BOX_IDS) {
-    const local = boutiqueProducts.find((p) => p.id === id);
-    const merged = byId.get(id);
-    if (local && merged) byId.set(id, { ...merged, name: local.name, features: local.features } as Product);
-  }
-  return [...byId.values()];
-};
-
-const memberPrice = (price: number) =>
-  SUBSCRIPTION.memberDiscountPercent !== null ? Math.round(price * (1 - SUBSCRIPTION.memberDiscountPercent / 100)) : null;
-
 export const Boutique = () => {
   const { cart, addToCart, updateQuantity, removeFromCart, promoCode, applyPromoCode, discountAmount } = useCart();
   const { language } = useLanguage();
@@ -61,7 +34,10 @@ export const Boutique = () => {
   const he = language === 'he';
   const tx = (h: string, e: string) => (he ? h : e);
 
-  const [products, setProducts] = useState<Product[]>(() => mergeCatalogue([]));
+  const { products: catalogue } = useCatalogue();
+  const { memberDiscountPercent } = useSeasonSettings();
+  const products = useMemo(() => catalogue.filter(visible), [catalogue]);
+  const memberPrice = (price: number) => memberPriceFor(price, memberDiscountPercent);
   const [activeCategory, setActiveCategory] = useState<(typeof CATEGORIES)[number]['id']>('all');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [personalization, setPersonalization] = useState<Record<string, { name: string; dedication: string }>>({});
@@ -69,15 +45,6 @@ export const Boutique = () => {
   const [promoInput, setPromoInput] = useState('');
 
   const favoriteProducts: string[] = profile?.favoriteProducts || [];
-
-  React.useEffect(() => {
-    const unsubscribe = onSnapshot(
-      query(collection(db, 'products')),
-      (snapshot) => setProducts(mergeCatalogue(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Product))),
-      (error) => handleFirestoreError(error, OperationType.GET, 'products')
-    );
-    return () => unsubscribe();
-  }, []);
 
   React.useEffect(() => {
     if (!isCartOpen) return;
@@ -219,6 +186,7 @@ export const Boutique = () => {
                     <div className="absolute start-0 top-0 flex gap-1">
                       {product.category === 'experience' && <span className="bg-spot px-2 py-1 text-xs font-bold text-paper">{tx('מארז', 'Box')}</span>}
                       {product.isPremium && <span className="bg-ink px-2 py-1 text-xs font-bold text-paper">{tx('למנויים', 'Members')}</span>}
+                      {product.soldOut && <span className="bg-paper px-2 py-1 text-xs font-bold text-ink">{tx('אזל', 'Sold out')}</span>}
                     </div>
                     {user && (
                       <button
@@ -318,6 +286,8 @@ export const Boutique = () => {
                           {tx('על המנוי', 'About membership')}
                         </Link>
                       </div>
+                    ) : product.soldOut ? (
+                      <p className="border-[3px] border-dashed border-ink px-4 py-3 text-center font-bold">{tx('אזל מהמלאי', 'Sold out')}</p>
                     ) : qty > 0 ? (
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center border-[3px] border-ink">

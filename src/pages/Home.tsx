@@ -7,8 +7,8 @@ import { useFirebase } from '../contexts/FirebaseContext';
 import { useCart } from '../contexts/CartContext';
 import { useAlert } from '../components/AlertModal';
 import { Ticket } from '../components/season/Ticket';
-import { boutiqueProducts } from '../data/boutique';
-import { BOX_IDS, CURRENT_SEASON, NIGHT_BANDS, SUBSCRIPTION, boxDuration } from '../data/season';
+import { useCatalogue, useSeasonSettings, visible } from '../lib/catalogue';
+import { BOX_IDS, NIGHT_BANDS, boxDuration } from '../data/season';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -46,10 +46,15 @@ export const Home = () => {
   const tx = (h: string, e: string) => (he ? h : e);
   const Arrow = he ? ArrowLeft : ArrowRight;
 
-  const boxes = BOX_IDS.map((id) => boutiqueProducts.find((p) => p.id === id)).filter((p): p is (typeof boutiqueProducts)[number] => Boolean(p));
-  const intermission = boutiqueProducts.filter((p) => p.category !== 'experience' && !p.isPremium).slice(0, 4);
-  const discount = SUBSCRIPTION.memberDiscountPercent;
-  const days = daysUntil(SUBSCRIPTION.nextSeasonStarts);
+  const { products } = useCatalogue();
+  const season = useSeasonSettings();
+  const SUBSCRIPTION = season;
+  const CURRENT_SEASON = { number: season.seasonNumber, evenings: season.evenings };
+  const shown = products.filter(visible);
+  const boxes = BOX_IDS.map((id) => shown.find((p) => p.id === id)).filter((p): p is (typeof shown)[number] => Boolean(p));
+  const intermission = shown.filter((p) => p.category !== 'experience' && !p.isPremium).slice(0, 4);
+  const discount = season.memberDiscountPercent;
+  const days = daysUntil(season.nextSeasonStarts);
   const joinTo = user ? '/dashboard' : '/login';
 
   React.useEffect(() => {

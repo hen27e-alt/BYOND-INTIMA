@@ -5,7 +5,7 @@ import { X } from 'lucide-react';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { BRANDING } from '../constants/branding';
-import { CURRENT_SEASON } from '../data/season';
+import { useSeasonSettings } from '../lib/catalogue';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -14,6 +14,7 @@ export const Footer = () => {
   const [isDisclaimerOpen, setIsDisclaimerOpen] = React.useState(false);
   const { profile, user } = useFirebase();
   const { language } = useLanguage();
+  const { seasonNumber } = useSeasonSettings();
   const he = language === 'he';
   const tx = (h: string, e: string) => (he ? h : e);
   const isAdmin = profile?.role === 'admin' || profile?.email === 'hen27e@gmail.com';
@@ -56,8 +57,8 @@ export const Footer = () => {
             </Link>
             <p className="mt-5 max-w-sm text-base leading-relaxed text-paper/75">
               {tx(
-                `ערבים זוגיים בעונות. עכשיו בתוכנייה: עונה ${pad(CURRENT_SEASON.number)}.`,
-                `Evenings for two, in seasons. Now showing: season ${pad(CURRENT_SEASON.number)}.`
+                `ערבים זוגיים בעונות. עכשיו בתוכנייה: עונה ${pad(seasonNumber)}.`,
+                `Evenings for two, in seasons. Now showing: season ${pad(seasonNumber)}.`
               )}
             </p>
             <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm font-bold">

@@ -8,7 +8,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useAlert } from '../components/AlertModal';
 import { Ticket } from '../components/season/Ticket';
 import { cardDecks } from '../data/decks';
-import { boutiqueProducts } from '../data/boutique';
+import { type Product, useCatalogue } from '../lib/catalogue';
 import { db } from '../firebase';
 import { cn } from '../lib/utils';
 
@@ -17,8 +17,8 @@ const SHIPPING_FEE = 25;
 
 type Field = 'firstName' | 'lastName' | 'email' | 'phone' | 'city' | 'address' | 'notes';
 
-const getProduct = (id: string): { name: string; price: number; image?: string } | null => {
-  const boutique = boutiqueProducts.find((p) => p.id === id);
+const getProduct = (catalogue: Product[], id: string): { name: string; price: number; image?: string } | null => {
+  const boutique = catalogue.find((p) => p.id === id && !p.hidden);
   if (boutique) return boutique;
   const deck = cardDecks.find((d) => d.id === id);
   if (deck) return { name: `BYOND ${deck.name}`, price: deck.price ?? 119 };
@@ -43,6 +43,7 @@ export const Checkout = () => {
   const { showAlert } = useAlert();
   const navigate = useNavigate();
   const formRef = useRef<HTMLFormElement>(null);
+  const { products: catalogue } = useCatalogue();
   const he = language === 'he';
   const tx = (h: string, e: string) => (he ? h : e);
 
@@ -65,7 +66,7 @@ export const Checkout = () => {
   );
 
   const lines = Object.entries(cart)
-    .map(([id, data]) => ({ id, quantity: data.quantity, product: getProduct(id) }))
+    .map(([id, data]) => ({ id, quantity: data.quantity, product: getProduct(catalogue, id) }))
     .filter((l): l is { id: string; quantity: number; product: NonNullable<ReturnType<typeof getProduct>> } => Boolean(l.product));
 
   const subtotal = lines.reduce((s, l) => s + l.product.price * l.quantity, 0);

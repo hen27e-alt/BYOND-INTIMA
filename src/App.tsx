@@ -34,6 +34,7 @@ const Games = React.lazy(() => import('./pages/Games').then(module => ({ default
 const RecipeDetail = React.lazy(() => import('./pages/RecipeDetail').then(module => ({ default: module.RecipeDetail })));
 const About = React.lazy(() => import('./pages/About').then(module => ({ default: module.About })));
 const Admin = React.lazy(() => import('./pages/Admin').then(module => ({ default: module.Admin })));
+const AdminTools = React.lazy(() => import('./pages/AdminTools').then(module => ({ default: module.AdminTools })));
 const DateRecommendations = React.lazy(() => import('./pages/DateRecommendations'));
 const CardDecks = React.lazy(() => import('./pages/CardDecks').then(module => ({ default: module.CardDecks })));
 const DeckDetail = React.lazy(() => import('./pages/DeckDetail').then(module => ({ default: module.DeckDetail })));
@@ -67,28 +68,31 @@ const PageLoader = () => (
 
 const PageTitleUpdater = () => {
   const location = useLocation();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   useEffect(() => {
     const path = location.pathname;
     let pageName = '';
+    const he = language === 'he';
 
     switch (path) {
       case '/': pageName = t('nav.home'); break;
       case '/experience': pageName = t('nav.experience'); break;
       case '/journey': pageName = t('nav.journey'); break;
       case '/decks': pageName = t('nav.decks'); break;
-      case '/contact': pageName = t('nav.contact'); break;
-      case '/login': pageName = t('nav.login'); break;
+      case '/contact': pageName = he ? 'צרו קשר' : 'Contact'; break;
+      case '/login': pageName = he ? 'כניסה' : 'Sign in'; break;
       case '/dashboard': pageName = t('nav.dashboard'); break;
       case '/profile': pageName = t('nav.profile'); break;
-      case '/about': pageName = t('nav.about'); break;
+      case '/about': pageName = he ? 'עלינו' : 'About'; break;
       case '/updates': pageName = t('nav.updates'); break;
-      case '/legal': pageName = t('nav.legal'); break;
-      case '/admin': pageName = 'Admin'; break;
-      case '/checkout': pageName = t('home.cart.checkout'); break;
-      case '/orders': pageName = t('nav.orders') || 'My Orders'; break;
-      case '/order-confirmation': pageName = 'Order Confirmation'; break;
+      case '/legal': pageName = he ? 'תקנון ומדיניות' : 'Terms & policies'; break;
+      case '/admin': pageName = he ? 'פאנל ניהול' : 'Admin'; break;
+      case '/admin/tools': pageName = he ? 'כלי ניהול' : 'Admin tools'; break;
+      case '/boutique': pageName = he ? 'הבוטיק' : 'Boutique'; break;
+      case '/checkout': pageName = he ? 'קופה' : 'Checkout'; break;
+      case '/orders': pageName = he ? 'ההזמנות שלי' : 'My orders'; break;
+      case '/order-confirmation': pageName = he ? 'ההזמנה התקבלה' : 'Order received'; break;
       case '/ai-consultant': pageName = t('nav.ai_consultant'); break;
       case '/together': pageName = 'Beyond Together'; break;
       default: 
@@ -97,7 +101,7 @@ const PageTitleUpdater = () => {
     }
 
     document.title = `${BRANDING.name} | ${pageName}`;
-  }, [location, t]);
+  }, [location, t, language]);
 
   return null;
 };
@@ -191,6 +195,7 @@ const AppContent = () => {
             <Route path="/contact" element={<Contact />} />
             <Route path="/updates" element={<Updates />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/admin/tools" element={<AdminTools />} />
             <Route path="/date-recommendations" element={<DateRecommendations />} />
             <Route path="/healthy-relationships" element={<HealthyRelationships />} />
             <Route path="/relationship-tips" element={<RelationshipTips />} />
