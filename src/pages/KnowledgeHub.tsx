@@ -11,7 +11,7 @@ const categories = [
     title: 'אינטליגנציה רגשית',
     desc: 'הבנת רגשות, אמפתיה, כבוד הדדי ואיך לבנות חיבור רגשי עמוק ובלתי שביר.',
     icon: Heart,
-    color: 'bg-rose-50 text-rose-600',
+    color: 'border border-gold/40 text-gold',
     link: '/emotional-intelligence'
   },
   {
@@ -19,7 +19,7 @@ const categories = [
     title: 'חיי נישואין',
     desc: 'תובנות לטווח ארוך: איך לצמוח יחד, להתמודד עם שינויים ולשמור על החברות בתוך הנישואין.',
     icon: Users,
-    color: 'bg-amber-50 text-amber-600',
+    color: 'border border-gold/40 text-gold',
     link: '/marriage-guide'
   },
   {
@@ -27,7 +27,7 @@ const categories = [
     title: 'אינטימיות ומיניות',
     desc: 'הבנת החשק, הכימיה של העונג ואיך לשמור על חיבור מיני עמוק לאורך השנים.',
     icon: Flame,
-    color: 'bg-red-50 text-red-600',
+    color: 'border border-gold/40 text-gold',
     link: '/intimacy-guide'
   },
   {
@@ -35,7 +35,7 @@ const categories = [
     title: 'תכנון חתונה וזוגיות',
     desc: 'המעבר מ"זוג" ל"נשואים": איך לצלוח את תקופת התכנון ולבנות חזון משותף לעתיד.',
     icon: Sparkles,
-    color: 'bg-indigo-50 text-indigo-600',
+    color: 'border border-gold/40 text-gold',
     link: '/wedding-planning'
   },
   {
@@ -43,7 +43,7 @@ const categories = [
     title: 'רעיונות לערב דייט',
     desc: 'השראה לשבירת השגרה: דייטים ביתיים, הרפתקאות בחוץ ורעיונות יצירתיים לכל תקציב.',
     icon: Calendar,
-    color: 'bg-orange-50 text-orange-600',
+    color: 'border border-gold/40 text-gold',
     link: '/date-night-ideas'
   },
   {
@@ -51,7 +51,7 @@ const categories = [
     title: 'הכוח שבטיפול זוגי',
     desc: 'למה טיפול הוא השקעה ולא כישלון: יתרונות מוכחים, מיתוסים ואיך זה מחזק גם זוגות מאושרים.',
     icon: ShieldCheck,
-    color: 'bg-emerald-50 text-emerald-600',
+    color: 'border border-gold/40 text-gold',
     link: '/couples-therapy'
   }
 ];
@@ -66,7 +66,7 @@ const KnowledgeHub = () => {
       title: t('hub.cat.emotional.title'),
       desc: t('hub.cat.emotional.desc'),
       icon: Heart,
-      color: 'bg-rose-50 text-rose-600',
+      color: 'border border-gold/40 text-gold',
       link: '/emotional-intelligence'
     },
     {
@@ -74,7 +74,7 @@ const KnowledgeHub = () => {
       title: t('hub.cat.marriage.title'),
       desc: t('hub.cat.marriage.desc'),
       icon: Users,
-      color: 'bg-amber-50 text-amber-600',
+      color: 'border border-gold/40 text-gold',
       link: '/marriage-guide'
     },
     {
@@ -82,7 +82,7 @@ const KnowledgeHub = () => {
       title: t('hub.cat.intimacy.title'),
       desc: t('hub.cat.intimacy.desc'),
       icon: Flame,
-      color: 'bg-red-50 text-red-600',
+      color: 'border border-gold/40 text-gold',
       link: '/intimacy-guide'
     },
     {
@@ -90,7 +90,7 @@ const KnowledgeHub = () => {
       title: t('hub.cat.wedding.title'),
       desc: t('hub.cat.wedding.desc'),
       icon: Sparkles,
-      color: 'bg-indigo-50 text-indigo-600',
+      color: 'border border-gold/40 text-gold',
       link: '/wedding-planning'
     },
     {
@@ -98,7 +98,7 @@ const KnowledgeHub = () => {
       title: t('hub.cat.date.title'),
       desc: t('hub.cat.date.desc'),
       icon: Calendar,
-      color: 'bg-orange-50 text-orange-600',
+      color: 'border border-gold/40 text-gold',
       link: '/date-night-ideas'
     },
     {
@@ -106,7 +106,7 @@ const KnowledgeHub = () => {
       title: t('hub.cat.therapy.title'),
       desc: t('hub.cat.therapy.desc'),
       icon: ShieldCheck,
-      color: 'bg-emerald-50 text-emerald-600',
+      color: 'border border-gold/40 text-gold',
       link: '/couples-therapy'
     }
   ];

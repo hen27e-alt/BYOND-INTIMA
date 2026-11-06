@@ -6,7 +6,7 @@ import { useCart } from '../contexts/CartContext';
 import { useAlert } from '../components/AlertModal';
 import { Ticket } from '../components/season/Ticket';
 import { useCatalogue, useSeasonSettings, visible } from '../lib/catalogue';
-import { BOX_IDS, boxDuration } from '../data/season';
+import { BOX_IDS, BOX_TONE, boxDuration } from '../data/season';
 import { SUITS } from '../data/missionCards';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -34,7 +34,9 @@ const DarkRoom = ({ evenings, children }: { evenings: { n: number; he: string }[
   };
 
   const words = (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0 flex flex-col justify-start gap-1 overflow-hidden px-4 pt-6 md:justify-center md:px-8 md:pt-0 lg:px-14">
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 flex flex-col justify-start gap-1 overflow-hidden px-4 pt-6 md:justify-center md:px-8 md:pt-0 lg:px-14"
+      style={narrow ? { WebkitMaskImage: 'linear-gradient(180deg,#000 16%,transparent 32%)', maskImage: 'linear-gradient(180deg,#000 16%,transparent 32%)' } : undefined}
+    >
       {evenings.map((ev, i) => (
         <p
           key={ev.n}
@@ -47,26 +49,26 @@ const DarkRoom = ({ evenings, children }: { evenings: { n: number; he: string }[
     </div>
   );
 
-  const light = reduce ? `radial-gradient(circle ${narrow ? 200 : 340}px at ${narrow ? '45% 16%' : '70% 45%'}, #000 0%, transparent 100%)` : 'radial-gradient(circle 240px at var(--x) var(--y), #000 0%, rgba(0,0,0,.55) 45%, transparent 100%)';
+  const light = reduce ? `radial-gradient(circle ${narrow ? 200 : 340}px at ${narrow ? '45% 16%' : '28% 42%'}, #000 0%, transparent 100%)` : 'radial-gradient(circle 240px at var(--x) var(--y), #000 0%, rgba(0,0,0,.55) 45%, transparent 100%)';
 
   return (
     <div
       ref={ref}
       onPointerMove={reduce ? undefined : move}
       className="glow-ember relative isolate overflow-hidden"
-      style={{ ['--x' as string]: narrow ? '45%' : '70%', ['--y' as string]: narrow ? '16%' : '42%' }}
+      style={{ ['--x' as string]: narrow ? '45%' : '28%', ['--y' as string]: narrow ? '16%' : '42%' }}
     >
       {/* the walls, barely there */}
-      <div className="absolute inset-0 text-ink/[0.045]">{words}</div>
+      <div className="absolute inset-0 text-ink/[0.035]">{words}</div>
       {/* the same walls, lit */}
-      <div className="absolute inset-0 text-ink/75" style={{ WebkitMaskImage: light, maskImage: light }}>
+      <div className="absolute inset-0 text-ink/45" style={{ WebkitMaskImage: light, maskImage: light }}>
         {words}
       </div>
       {/* warm falloff of the light itself */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 mix-blend-screen"
-        style={{ background: reduce ? `radial-gradient(circle 420px at ${narrow ? '45% 16%' : '70% 45%'}, rgba(217,54,31,.14), transparent 70%)` : 'radial-gradient(circle 360px at var(--x) var(--y), rgba(217,54,31,.16), transparent 70%)' }}
+        style={{ background: reduce ? `radial-gradient(circle 420px at ${narrow ? '45% 16%' : '28% 42%'}, rgba(217,54,31,.14), transparent 70%)` : 'radial-gradient(circle 360px at var(--x) var(--y), rgba(217,54,31,.16), transparent 70%)' }}
       />
       <div className="relative">{children}</div>
       {!reduce && (
@@ -176,17 +178,18 @@ export const Home = () => {
             {boxes.map((box, i) => (
               <motion.li key={box.id} {...fadeUp()} className="grid items-center gap-8 lg:grid-cols-12 lg:gap-12">
                 <div className={`relative lg:col-span-5 ${i % 2 ? 'lg:order-2 lg:col-start-8' : ''}`}>
-                  <div className="fill-spot relative aspect-[4/5] overflow-hidden shadow-[0_40px_120px_-30px_rgba(217,54,31,0.55)]">
-                    <img src={box.image} alt="" loading="lazy" className="h-full w-full object-cover mix-blend-luminosity grayscale contrast-150 brightness-75" />
-                    {/* shadows fall to black, light stays ember: a duotone that reads as a lit room */}
-                    <span aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[linear-gradient(200deg,transparent_25%,rgba(10,8,9,.55)_70%,rgba(10,8,9,.92)),radial-gradient(70%_50%_at_80%_10%,rgba(242,100,70,.25),transparent_70%)]" />
+                  <div
+                    className="relative aspect-[4/5] overflow-hidden bg-[#0B0909]"
+                    style={{ boxShadow: `0 40px 140px -40px ${BOX_TONE[box.id]?.glow ?? 'rgba(217,54,31,.5)'}` }}
+                  >
+                    <img src={box.image} alt={box.name} loading="lazy" className="h-full w-full object-cover" />
                   </div>
                   <span className="absolute -top-6 start-4 font-display text-[clamp(4rem,9vw,7rem)] font-bold leading-none text-[#EFE6D8] tabular-nums md:-top-10" dir="ltr">
                     {HOUR_OF[box.id]}
                   </span>
                 </div>
                 <div className={`lg:col-span-6 ${i % 2 ? 'lg:order-1 lg:col-start-1' : 'lg:col-start-7'}`}>
-                  <p className="text-sheen text-sm font-bold">
+                  <p className="text-sheen text-sm font-bold" style={{ backgroundImage: BOX_TONE[box.id]?.foil }}>
                     {SUIT_OF[box.id]} · {boxDuration(box.id, true)}
                   </p>
                   <h3 className="mt-2 font-display text-[clamp(4rem,8vw,6.5rem)] font-bold leading-[0.82]">{box.name.replace(/^מארז /, '')}</h3>

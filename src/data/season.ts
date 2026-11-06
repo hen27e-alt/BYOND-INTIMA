@@ -51,3 +51,16 @@ export const BOX_DURATION_HE: Record<string, string> = {
 };
 
 export const boxDuration = (id: string, he: boolean) => (he ? BOX_DURATION_HE[id] : BOX_DURATION_EN[id]);
+
+/**
+ * Each box has its own foil, from the lightest to the deepest: rosé, ember copper, gold.
+ * `glow` lights the box from behind; `foil` is a text gradient for its labels.
+ */
+export const BOX_TONE: Record<string, { glow: string; foil: string }> = {
+  exp_spark: { glow: 'rgba(232,140,130,0.45)', foil: 'linear-gradient(100deg,#A8655A,#F2C4B4 40%,#C98C7E 60%,#FBE0D4 85%)' },
+  exp_velvet: { glow: 'rgba(217,54,31,0.55)', foil: 'linear-gradient(100deg,#B8482F,#F08A6A 40%,#C8553A 60%,#FFC3A8 85%)' },
+  exp_ecstasy: { glow: 'rgba(201,166,107,0.5)', foil: 'linear-gradient(100deg,#9C7742,#EBD3A1 38%,#B8925A 58%,#F4E4BE 82%)' },
+};
+
+/** Box images drawn for the site (public/boxes) are already lit; they skip photo treatments. */
+export const isBoxArt = (src?: string) => !!src && src.startsWith('/boxes/');

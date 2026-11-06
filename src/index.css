@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Karantina:wght@400;700&family=Heebo:wght@400;500;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@300;400;500;700&family=Heebo:wght@300;400;500;700;900&display=swap');
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
@@ -9,7 +9,7 @@
 @theme {
   --font-sans: "Heebo", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Heebo", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Karantina", "Heebo", sans-serif;
+  --font-display: "Frank Ruhl Libre", "Heebo", serif;
 
   --color-brand-cream: var(--color-bg);
   --color-brand-gold: var(--color-accent);
@@ -120,7 +120,7 @@
 }
 
 .text-gold {
-  @apply text-brand-gold;
+  color: var(--color-champagne);
 }
 
 .border-gold {
@@ -403,3 +403,27 @@ body::after {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 @media print { body::after { display: none; } }
+
+/* ---------- Luxury finish ----------
+   The season's structure stays (numbering, rules, tickets); the finish moves up: an editorial
+   Hebrew serif for display, hairlines instead of poster-weight rules, and softer ink. The
+   serif is wider than the old condensed face, so display type is scaled to keep every
+   heading inside the column it was laid out for. */
+.font-display { zoom: 0.72; font-weight: 400; letter-spacing: -0.01em; }
+.font-display.font-bold, .font-display.font-black { font-weight: 500; }
+.font-display[class*="leading-"] { line-height: 1.04; }
+.font-display .font-display { zoom: 1; }
+
+.border-\[3px\] { border-width: 1px; }
+.border-t-\[3px\] { border-top-width: 1px; }
+.border-b-\[3px\] { border-bottom-width: 1px; }
+.border-2 { border-width: 1px; }
+.border-ink { border-color: color-mix(in srgb, var(--color-ink) 42%, transparent); }
+.border-paper { border-color: color-mix(in srgb, var(--color-paper) 42%, transparent); }
+
+/* The wordmark: wide-set capitals in foil. */
+.wordmark {
+  font-family: var(--font-display); font-weight: 400; letter-spacing: 0.16em; zoom: 1;
+  background-image: linear-gradient(100deg, #9C7742 0%, #EBD3A1 38%, #B8925A 58%, #F4E4BE 82%, #A8844E 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}

@@ -6,7 +6,7 @@ import { useCart } from '../contexts/CartContext';
 import { useAlert } from '../components/AlertModal';
 import { EditableImage } from '../components/EditableImage';
 import { Ticket } from '../components/season/Ticket';
-import { BOX_IDS, NIGHT_BANDS, bandHour, boxDuration } from '../data/season';
+import { BOX_IDS, NIGHT_BANDS, bandHour, boxDuration, isBoxArt } from '../data/season';
 import { type Product, memberPriceFor, useCatalogue, useSeasonSettings, visible } from '../lib/catalogue';
 
 type Box = Product & {
@@ -122,7 +122,7 @@ export const Experience = () => {
                       contentId={`exp_card_${box.id}_image`}
                       defaultSrc={box.image}
                       alt={box.name}
-                      className="h-full w-full object-cover grayscale contrast-125"
+                      className={isBoxArt(box.image) ? "h-full w-full object-cover" : "h-full w-full object-cover grayscale contrast-125"}
                     />
                   </div>
                   <span className="absolute -top-5 start-4 bg-paper px-2 font-display text-7xl font-bold leading-none text-spot md:text-8xl" aria-hidden="true">

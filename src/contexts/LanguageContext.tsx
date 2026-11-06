@@ -1,3 +1,4 @@
+import { EXTRA_HE } from '../i18n/extra';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 type Language = 'he' | 'en' | 'ru' | 'ar' | 'es' | 'fr' | 'de' | 'it';
@@ -31,7 +32,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [language]);
 
   const t = (key: string) => {
-    return translations[language]?.[key] || key;
+    return translations[language]?.[key] || EXTRA_HE[key] || key;
   };
 
   return (

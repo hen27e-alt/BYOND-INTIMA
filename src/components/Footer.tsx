@@ -53,7 +53,7 @@ export const Footer = () => {
       <div className="mx-auto max-w-[1440px] px-4 pt-14 pb-8 md:px-8 lg:px-14 lg:pt-20">
         <div className="grid gap-12 border-b border-paper/20 pb-12 lg:grid-cols-[1.4fr_1fr_1fr]">
           <div>
-            <Link to="/" className="font-display text-[64px] font-bold leading-[0.85] md:text-[88px]">
+            <Link to="/" className="wordmark text-[30px] leading-none md:text-[44px]">
               BYOND INTIMA
             </Link>
             <p className="mt-5 max-w-sm text-base leading-relaxed text-paper/75">

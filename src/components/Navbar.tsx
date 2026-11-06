@@ -59,7 +59,7 @@ export const Navbar = () => {
   const firstName = profile?.displayName?.split(' ')[0];
 
   return (
-    <nav className="fixed inset-x-0 top-0 z-50 border-b-[3px] border-ink bg-paper" aria-label={he ? 'תפריט ראשי' : 'Main menu'}>
+    <nav className="rule-sheen fixed inset-x-0 top-0 z-50 border-b bg-paper/85 backdrop-blur-md" aria-label={he ? 'תפריט ראשי' : 'Main menu'}>
       <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between gap-4 px-4 md:h-20 md:px-8 lg:px-14">
         <div className="flex items-center gap-3">
           <button
@@ -71,7 +71,7 @@ export const Navbar = () => {
             {isOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
           <Link to="/" className="flex items-baseline gap-3 text-ink" aria-label="Byond Intima">
-            <span className="font-display text-[34px] font-bold leading-none md:text-[42px]">BYOND INTIMA</span>
+            <span className="wordmark text-[19px] leading-none md:text-[24px]">BYOND INTIMA</span>
             <span className="hidden text-xs font-bold text-ink/70 xl:inline">
               {he ? `עונה ${pad(seasonNumber)}` : `Season ${pad(seasonNumber)}`}
             </span>
