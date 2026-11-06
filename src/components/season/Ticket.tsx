@@ -48,10 +48,10 @@ export const Ticket = ({ label, stub, stubCaption, to, onClick, disabled, size =
     <>
       <span
         className={cn(
-          'flex flex-1 items-center justify-center px-6 font-black text-[var(--color-bg)] transition-colors',
-          tone === 'ink' ? 'bg-ink group-hover:bg-spot' : 'bg-spot group-hover:bg-ink',
+          'flex flex-1 items-center justify-center px-6 font-black transition-[filter,background-color,color]',
+          tone === 'ink' ? 'bg-ink text-[var(--color-bg)] group-hover:fill-spot group-hover:text-ink' : 'fill-spot text-ink group-hover:brightness-115',
           size === 'lg' ? 'text-xl md:text-2xl' : 'text-base md:text-lg',
-          disabled && 'bg-ink/40 group-hover:bg-ink/40'
+          disabled && 'bg-ink/40 bg-none group-hover:bg-ink/40 group-hover:bg-none'
         )}
       >
         {label}

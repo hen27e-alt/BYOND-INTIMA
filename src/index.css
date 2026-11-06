@@ -31,14 +31,16 @@
 }
 
 @layer base {
-  /* Season 01 spot colour: vermilion. Change --color-accent per season. */
+  /* The site lives at night: warm black, light ink, one red. Change --color-accent per season. */
   :root, .theme-light {
-    --color-bg: #F1ECE2;
-    --color-accent: #C7361D;
-    --color-accent-light: #E0442A;
-    --color-text: #16130F;
-    --color-surface: #F8F4EC;
-    --color-line: rgba(22, 19, 15, 0.16);
+    --color-bg: #110E0D;
+    --color-accent: #D9361F;
+    --color-accent-light: #F0583C;
+    --color-text: #EFE6D8;
+    --color-surface: #1A1614;
+    --color-line: rgba(239, 230, 216, 0.16);
+    --color-champagne: #C9A66B;
+    color-scheme: dark;
   }
 
   .theme-dark {
@@ -331,19 +333,73 @@
   font-family: var(--font-display); font-weight: 700; line-height: 0.95; font-size: 2.5em;
 }
 
-/* ---------- Night (design study, /preview/night) ----------
-   The same tokens, with the light switched off. Unlayered so it wins over the
-   base theme. Champagne is the rare third colour: prices and value only. */
-:root { --color-champagne: #9A7A4C; }
-.theme-night {
-  --color-bg: #110E0D;
-  --color-text: #EFE6D8;
-  --color-accent: #D9361F;
-  --color-accent-light: #F0583C;
-  --color-surface: #1A1614;
-  --color-line: rgba(239, 230, 216, 0.16);
-  --color-champagne: #C9A66B;
-  color-scheme: dark;
+/* ---------- Night ----------
+   Champagne is the rare third colour: prices and value only. Sections drawn "light on the
+   dark room" keep that contrast: the room goes deeper than the page, its type stays light. */
+.bg-room { --color-bg: #EFE6D8; --color-paper: #EFE6D8; --color-ink: #110E0D; background-color: #0A0809; }
+
+/* Older pages were written for a light site: white cards, and "brand-black" bands with white
+   type. At night a white card becomes the lifted surface, and a brand-black band stays the
+   darkest room instead of inverting into a pale one. */
+.bg-white, .bg-\[\#f8f8f8\], .bg-\[\#F8F8F8\], .bg-\[\#fafafa\], .bg-\[\#FAFAFA\], .bg-\[\#fdfcf8\] { background-color: var(--color-surface); }
+.bg-brand-black { background-color: #0A0809; }
+[class*=" bg-brand-black/"], [class^="bg-brand-black/"] { background-color: rgba(5, 4, 4, 0.6); }
+[class*="hover:bg-brand-black"]:hover { background-color: #0A0809; }
+.text-black { color: var(--color-text); }
+.bg-black.text-black, .bg-white .text-white { color: var(--color-text); }
+.readable-mode-active .article-content { color: var(--color-text) !important; background-color: var(--color-surface) !important; }
+
+/* ---------- Night light: the gradients ----------
+   Light in this world comes from three sources only: an ember (red, warm), the deep wine
+   under it (oxblood), and a champagne haze for dawn and value. Every gradient on the site
+   is built from these, so they read as one lighting plan rather than decoration. */
+@utility glow-ember {
+  background-color: var(--color-bg);
+  background-image:
+    radial-gradient(70% 60% at 88% 8%, rgba(217, 54, 31, 0.30), transparent 62%),
+    radial-gradient(55% 55% at 6% 96%, rgba(106, 18, 38, 0.38), transparent 64%),
+    linear-gradient(180deg, rgba(10, 8, 9, 0) 55%, rgba(10, 8, 9, 0.85));
 }
-/* Sections drawn "light on the dark room" keep that contrast at night: the room goes deeper, its type stays light. */
-.theme-night .bg-room { --color-bg: #EFE6D8; --color-paper: #EFE6D8; background-color: #0A0809; }
+@utility glow-oxblood {
+  background-color: var(--color-bg);
+  background-image:
+    radial-gradient(80% 70% at 50% 110%, rgba(122, 20, 34, 0.45), transparent 66%),
+    radial-gradient(40% 40% at 12% 10%, rgba(217, 54, 31, 0.10), transparent 70%);
+}
+@utility glow-dawn {
+  background-color: var(--color-bg);
+  background-image:
+    radial-gradient(75% 65% at 20% 0%, rgba(201, 166, 107, 0.20), transparent 62%),
+    radial-gradient(60% 60% at 95% 100%, rgba(217, 54, 31, 0.16), transparent 66%);
+}
+/* The red of the call to action, lit from the top corner. */
+@utility fill-spot {
+  background-color: var(--color-accent);
+  background-image: linear-gradient(135deg, #F26446 0%, #D9361F 42%, #9E1C0E 100%);
+}
+/* Gold only speaks about value: prices, the membership, "with a box". */
+@utility text-sheen {
+  background-image: linear-gradient(100deg, #9C7742 0%, #EBD3A1 38%, #B8925A 58%, #F4E4BE 82%, #A8844E 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+@utility rule-sheen {
+  border-image: linear-gradient(90deg, transparent, #C9A66B 18%, #EBD3A1 50%, #C9A66B 82%, transparent) 1;
+}
+@utility rule-ember {
+  border-image: linear-gradient(90deg, transparent, rgba(240, 88, 60, 0.7) 30%, rgba(240, 88, 60, 0.7) 70%, transparent) 1;
+}
+
+/* Grain: a fine film over the whole site so the black has depth instead of being flat. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.07;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+@media print { body::after { display: none; } }

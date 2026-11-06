@@ -119,7 +119,7 @@ export const CardDecks = () => {
   });
 
   return (
-    <div className="min-h-screen bg-[#F8F8F8] text-[#1A1A1A] pt-32 pb-20 px-6 overflow-hidden" dir={language === 'he' || language === 'ar' ? 'rtl' : 'ltr'}>
+    <div className="min-h-screen glow-ember text-ink pt-32 pb-20 px-6 overflow-hidden" dir={language === 'he' || language === 'ar' ? 'rtl' : 'ltr'}>
       {/* Background Accent */}
       <div className="fixed top-0 left-0 w-full h-full pointer-events-none opacity-[0.03] z-0">
         <div className="absolute top-[-10%] right-[-10%] w-[60%] h-[60%] bg-brand-gold rounded-full blur-[120px]" />

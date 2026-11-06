@@ -176,8 +176,9 @@ export const Boutique = () => {
                       contentId={`boutique_product_${product.id}_image`}
                       defaultSrc={product.image}
                       alt={product.name}
-                      className="h-full w-full object-cover mix-blend-multiply grayscale contrast-125 transition-[filter] duration-300 group-hover:grayscale-0"
+                      className="h-full w-full object-cover grayscale contrast-110 brightness-90 transition-[filter] duration-500 group-hover:grayscale-0 group-hover:brightness-100"
                     />
+                    <span aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,transparent_55%,rgba(17,14,13,.7)),radial-gradient(80%_60%_at_100%_0%,rgba(217,54,31,.18),transparent_70%)] transition-opacity duration-500 group-hover:opacity-40" />
                     {product.personalizable && personalization[product.id]?.name && (
                       <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-paper/90 px-3 py-2 text-center font-display text-3xl font-bold">
                         {personalization[product.id].name}
@@ -355,7 +356,7 @@ export const Boutique = () => {
                   <ul className="flex-1 overflow-y-auto px-6">
                     {cartItems.map((item) => (
                       <li key={item.id} className="grid grid-cols-[64px_1fr_auto] items-center gap-4 border-b border-ink py-4">
-                        {item.product?.image ? <img src={item.product.image} alt="" className="aspect-square w-full object-cover grayscale mix-blend-multiply" /> : <span />}
+                        {item.product?.image ? <img src={item.product.image} alt="" className="aspect-square w-full object-cover grayscale" /> : <span />}
                         <div>
                           <p className="font-bold leading-snug">{item.product?.name ?? item.id}</p>
                           {item.personalization?.name && <p className="text-sm text-ink/70">{tx('חריטה:', 'Engraving:')} {item.personalization.name}</p>}

@@ -33,7 +33,6 @@ const Games = React.lazy(() => import('./pages/Games').then(module => ({ default
 const RecipeDetail = React.lazy(() => import('./pages/RecipeDetail').then(module => ({ default: module.RecipeDetail })));
 const About = React.lazy(() => import('./pages/About').then(module => ({ default: module.About })));
 const Admin = React.lazy(() => import('./pages/Admin').then(module => ({ default: module.Admin })));
-const NightHome = React.lazy(() => import('./pages/NightHome').then(module => ({ default: module.NightHome })));
 const MissionCards = React.lazy(() => import('./pages/MissionCards').then(module => ({ default: module.MissionCards })));
 const AdminTools = React.lazy(() => import('./pages/AdminTools').then(module => ({ default: module.AdminTools })));
 const DateRecommendations = React.lazy(() => import('./pages/DateRecommendations'));
@@ -199,7 +198,7 @@ const AppContent = () => {
             <Route path="/admin" element={<Admin />} />
             <Route path="/admin/tools" element={<AdminTools />} />
             <Route path="/cards" element={<MissionCards />} />
-            <Route path="/preview/night" element={<NightHome />} />
+            <Route path="/preview/night" element={<Navigate to="/" replace />} />
             <Route path="/date-recommendations" element={<DateRecommendations />} />
             <Route path="/healthy-relationships" element={<HealthyRelationships />} />
             <Route path="/relationship-tips" element={<RelationshipTips />} />
