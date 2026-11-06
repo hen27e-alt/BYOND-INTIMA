@@ -5,12 +5,16 @@ import {defineConfig, loadEnv} from 'vite';
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
+  // Never bake secret keys into a production bundle: anyone can read it.
+  // Locally (npm run dev) the key from .env still works. On the live site,
+  // AI calls must go through the server once it is set up.
+  const exposeKeys = mode !== 'production';
   return {
     base: '/',
     plugins: [react(), tailwindcss()],
     define: {
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || process.env.GEMINI_API_KEY || ''),
-      'process.env.API_KEY': JSON.stringify(env.API_KEY || process.env.API_KEY || ''),
+      'process.env.GEMINI_API_KEY': JSON.stringify(exposeKeys ? env.GEMINI_API_KEY || process.env.GEMINI_API_KEY || '' : ''),
+      'process.env.API_KEY': JSON.stringify(exposeKeys ? env.API_KEY || process.env.API_KEY || '' : ''),
     },
     resolve: {
       alias: {
