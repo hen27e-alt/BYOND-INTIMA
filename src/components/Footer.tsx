@@ -33,6 +33,7 @@ export const Footer = () => {
         { to: '/#membership', label: tx('המנוי', 'Membership') },
         { to: '/experience', label: tx('המארזים', 'The boxes') },
         { to: '/boutique', label: tx('הבוטיק', 'Boutique') },
+        { to: '/cards', label: tx('קלפי המשימה', 'Mission cards') },
         { to: user ? '/dashboard' : '/login', label: tx('המקום שלכם', 'Your place') },
       ],
     },

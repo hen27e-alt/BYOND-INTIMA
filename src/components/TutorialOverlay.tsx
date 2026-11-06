@@ -37,11 +37,15 @@ export const TutorialOverlay = () => {
   const [currentStep, setCurrentStep] = useState(0);
 
   useEffect(() => {
-    const isLoginPage = window.location.pathname === '/login';
-    if (isLoginPage) return;
-
-    const hasSeenTutorial = localStorage.getItem('byond_has_seen_tutorial');
-    if (!hasSeenTutorial) {
+    // The tour explains the member area, so it only opens there on its own; the public pages stay clear.
+    const inMemberArea = window.location.pathname.startsWith('/dashboard');
+    let hasSeenTutorial: string | null = null;
+    try {
+      hasSeenTutorial = localStorage.getItem('byond_has_seen_tutorial');
+    } catch {
+      hasSeenTutorial = 'true';
+    }
+    if (inMemberArea && !hasSeenTutorial) {
       setIsOpen(true);
     }
 

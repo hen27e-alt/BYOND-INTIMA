@@ -34,6 +34,7 @@ const Games = React.lazy(() => import('./pages/Games').then(module => ({ default
 const RecipeDetail = React.lazy(() => import('./pages/RecipeDetail').then(module => ({ default: module.RecipeDetail })));
 const About = React.lazy(() => import('./pages/About').then(module => ({ default: module.About })));
 const Admin = React.lazy(() => import('./pages/Admin').then(module => ({ default: module.Admin })));
+const MissionCards = React.lazy(() => import('./pages/MissionCards').then(module => ({ default: module.MissionCards })));
 const AdminTools = React.lazy(() => import('./pages/AdminTools').then(module => ({ default: module.AdminTools })));
 const DateRecommendations = React.lazy(() => import('./pages/DateRecommendations'));
 const CardDecks = React.lazy(() => import('./pages/CardDecks').then(module => ({ default: module.CardDecks })));
@@ -90,6 +91,7 @@ const PageTitleUpdater = () => {
       case '/admin': pageName = he ? 'פאנל ניהול' : 'Admin'; break;
       case '/admin/tools': pageName = he ? 'כלי ניהול' : 'Admin tools'; break;
       case '/boutique': pageName = he ? 'הבוטיק' : 'Boutique'; break;
+      case '/cards': pageName = he ? 'קלפי המשימה' : 'Mission cards'; break;
       case '/checkout': pageName = he ? 'קופה' : 'Checkout'; break;
       case '/orders': pageName = he ? 'ההזמנות שלי' : 'My orders'; break;
       case '/order-confirmation': pageName = he ? 'ההזמנה התקבלה' : 'Order received'; break;
@@ -196,6 +198,7 @@ const AppContent = () => {
             <Route path="/updates" element={<Updates />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/admin/tools" element={<AdminTools />} />
+            <Route path="/cards" element={<MissionCards />} />
             <Route path="/date-recommendations" element={<DateRecommendations />} />
             <Route path="/healthy-relationships" element={<HealthyRelationships />} />
             <Route path="/relationship-tips" element={<RelationshipTips />} />
