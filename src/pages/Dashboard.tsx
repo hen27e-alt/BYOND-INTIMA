@@ -23,7 +23,6 @@ import { DashboardModeToggle } from '../components/dashboard/DashboardModeToggle
 import { QuickActions } from '../components/dashboard/QuickActions';
 import { navCategories, EXPERIENCE_ITEMS } from '../constants/dashboardNav';
 
-import { ViewToggle } from '../components/dashboard/ViewToggle';
 import { ProfileView } from '../components/dashboard/ProfileView';
 import { CodeEntry } from '../components/dashboard/CodeEntry';
 import { CelebrationOverlay } from '../components/dashboard/CelebrationOverlay';
@@ -105,8 +104,7 @@ import { WeeklyCheckIn } from '../components/dashboard/WeeklyCheckIn';
 import { DatingGoals } from '../components/dashboard/DatingGoals';
 import { GamificationHub } from '../components/dashboard/GamificationHub';
 import { TreasureHunt } from '../components/dashboard/TreasureHunt';
-import { MobileDashboard } from '../components/dashboard/MobileDashboard';
-import { DesktopDashboard } from '../components/dashboard/DesktopDashboard';
+import { MemberShell } from '../components/dashboard/MemberShell';
 import { MissionsTab } from '../components/dashboard/MissionsTab';
 import { CustomPlaylistModal } from '../components/dashboard/CustomPlaylistModal';
 
@@ -119,8 +117,34 @@ export const Dashboard = () => {
   const navigate = useNavigate();
   const { showAlert } = useAlert();
   const { t, language } = useLanguage();
-  const { user, profile, loading, signIn, logout, updateProfile } = useFirebase();
-  const [activeTab, setActiveTab] = React.useState('feed');
+  const fb = useFirebase();
+  // Dev only: /dashboard?preview shows the rooms with a sample couple, saving nothing.
+  const sample: any = import.meta.env.DEV ? { uid: 'preview', displayName: 'נועה לוי', partnerName: 'איתי', email: 'noa@example.com', programme: { s1: [1] } } : null;
+  const [previewProfile, setPreviewProfile] = React.useState<any>(sample);
+  const preview = import.meta.env.DEV && !fb.user && new URLSearchParams(window.location.search).has('preview');
+  const { signIn } = fb;
+  const user = preview ? sample : fb.user;
+  const profile = preview ? previewProfile : fb.profile;
+  const loading = preview ? false : fb.loading;
+  const logout = preview ? async () => {} : fb.logout;
+  const updateProfile = preview ? async (u: any) => setPreviewProfile((p: any) => ({ ...p, ...u })) : fb.updateProfile;
+  const tabFromHash = () => window.location.hash.slice(1) || 'feed';
+  const [activeTab, setTab] = React.useState(tabFromHash);
+  // The room lives in the URL hash, so /dashboard#journal can be linked and Back works.
+  const setActiveTab = React.useCallback((t: string) => {
+    if (t !== tabFromHash()) window.history.pushState(null, '', `${window.location.pathname}${window.location.search}#${t}`);
+    setTab(t);
+    window.scrollTo({ top: 0 });
+  }, []);
+  React.useEffect(() => {
+    const onPop = () => setTab(tabFromHash());
+    window.addEventListener('popstate', onPop);
+    window.addEventListener('hashchange', onPop);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      window.removeEventListener('hashchange', onPop);
+    };
+  }, []);
   const [dashboardMode, setDashboardMode] = React.useState<'experience' | 'lounge'>(user ? 'experience' : 'lounge');
   const [isCodeVerified, setIsCodeVerified] = React.useState(true); // Forced for testing phase to bypass code entry screen
   const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
@@ -195,17 +219,6 @@ export const Dashboard = () => {
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const [showForceReload, setShowForceReload] = React.useState(false);
 
-  // Debug logging
-  React.useEffect(() => {
-    console.log('Dashboard State:', { 
-      loading, 
-      user: !!user, 
-      profile: !!profile, 
-      isCodeVerified,
-      dashboardMode,
-      activeTab
-    });
-  }, [loading, user, profile, isCodeVerified, dashboardMode, activeTab]);
 
   // Loading timeout
   React.useEffect(() => {
@@ -238,29 +251,50 @@ export const Dashboard = () => {
     }
   };
 
+  React.useEffect(() => {
+    return () => {
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, [audioUrl]);
+
+  const [notifications, setNotifications] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    if (!profile?.coupleId) return;
+    const q = query(
+      collection(db, 'couple_missions'),
+      where('coupleId', '==', profile.coupleId),
+      where('completionStatus', '==', 'pending')
+    );
+
+    return onSnapshot(q, (snapshot) => {
+      const missions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const upcoming = missions.filter((m: any) => {
+        if (!m.deadline) return false;
+        const deadline = m.deadline.toDate ? m.deadline.toDate() : new Date(m.deadline);
+        const diff = deadline.getTime() - new Date().getTime();
+        return diff > 0 && diff < 3 * 24 * 60 * 60 * 1000; // Next 3 days
+      });
+      setNotifications(upcoming);
+    });
+  }, [profile?.coupleId]);
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F9F8F6] flex items-center justify-center p-6">
-        <div className="flex flex-col items-center gap-6 text-center max-w-xs">
-          <Loader2 className="animate-spin text-brand-gold" size={48} />
-          <div className="space-y-2">
-            <p className="text-brand-black/40 font-serif italic text-lg">טוען את המרחב האישי שלכם...</p>
-            {showForceReload && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="pt-4"
-              >
-                <p className="text-xs text-brand-black/30 mb-4">נראה שהטעינה לוקחת קצת זמן. ייתכן שיש בעיית חיבור.</p>
-                <button 
-                  onClick={() => window.location.reload()}
-                  className="px-6 py-2 bg-brand-black text-white text-[10px] uppercase tracking-widest hover:bg-brand-gold transition-all"
-                >
-                  נסה לרענן את העמוד
-                </button>
-              </motion.div>
-            )}
-          </div>
+      <div className="flex min-h-screen items-center justify-center bg-paper px-4 text-ink">
+        <div className="w-full max-w-sm border-y-[3px] border-ink py-8 text-center" role="status">
+          <p className="font-display text-6xl font-bold leading-none">פותחים את הדלת</p>
+          <div aria-hidden="true" className="mx-auto mt-5 h-[3px] w-24 animate-pulse bg-spot motion-reduce:animate-none" />
+          {showForceReload && (
+            <div className="mt-6">
+              <p className="text-base">הטעינה לוקחת יותר מהרגיל. אולי יש בעיה בחיבור.</p>
+              <button onClick={() => window.location.reload()} className="mt-4 bg-ink px-5 py-2.5 font-bold text-paper hover:bg-spot">
+                לרענן את הדף
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -346,13 +380,6 @@ export const Dashboard = () => {
     }
   };
 
-  React.useEffect(() => {
-    return () => {
-      if (audioUrl) {
-        URL.revokeObjectURL(audioUrl);
-      }
-    };
-  }, [audioUrl]);
 
   const medals = [
     { id: 'bronze', name: 'מדליית ארד (המתחיל)', icon: Award, desc: 'הוענקה על השלמת 3 משימות ראשונות', unlocked: true },
@@ -419,27 +446,6 @@ export const Dashboard = () => {
 
 
 
-  const [notifications, setNotifications] = React.useState<any[]>([]);
-
-  React.useEffect(() => {
-    if (!profile?.coupleId) return;
-    const q = query(
-      collection(db, 'couple_missions'),
-      where('coupleId', '==', profile.coupleId),
-      where('completionStatus', '==', 'pending')
-    );
-
-    return onSnapshot(q, (snapshot) => {
-      const missions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      const upcoming = missions.filter((m: any) => {
-        if (!m.deadline) return false;
-        const deadline = m.deadline.toDate ? m.deadline.toDate() : new Date(m.deadline);
-        const diff = deadline.getTime() - new Date().getTime();
-        return diff > 0 && diff < 3 * 24 * 60 * 60 * 1000; // Next 3 days
-      });
-      setNotifications(upcoming);
-    });
-  }, [profile?.coupleId]);
 
   const dashboardProps = {
     user,
@@ -483,10 +489,8 @@ export const Dashboard = () => {
       <AnimatePresence mode="wait">
         <motion.div
           key={activeTab}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          transition={{ duration: 0.2 }}
+          initial={false}
+          animate={{ opacity: 1 }}
         >
           {(() => {
             switch (activeTab) {
@@ -525,12 +529,12 @@ export const Dashboard = () => {
                 return null; // Feed is handled in MobileDashboard/DesktopDashboard
               default:
                 return (
-                  <div className="flex flex-col items-center justify-center py-20 text-center">
-                    <div className="w-16 h-16 bg-brand-gold/10 rounded-full flex items-center justify-center mb-4">
-                      <Lock className="text-brand-gold" size={32} />
-                    </div>
-                    <h3 className="text-xl font-serif mb-2">התוכן בדרך...</h3>
-                    <p className="text-brand-black/60 max-w-xs">אנחנו עובדים על שדרוג החוויה שלכם. בקרוב תוכלו ליהנות מכל התכונות החדשות!</p>
+                  <div className="border-y-[3px] border-ink py-16 text-center">
+                    <p className="font-display text-6xl font-bold leading-none">החדר הזה עוד בבנייה</p>
+                    <p className="mx-auto mt-4 max-w-[36ch] text-lg">בינתיים אפשר לחזור לערב שלכם.</p>
+                    <button onClick={() => setActiveTab('feed')} className="mt-6 bg-ink px-5 py-2.5 font-bold text-paper hover:bg-spot">
+                      לערב שלכם
+                    </button>
                   </div>
                 );
             }
@@ -541,30 +545,19 @@ export const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F9F8F6] pt-16 md:pt-20">
+    <div className="min-h-screen bg-paper pt-16 md:pt-20">
       <OnboardingModal />
-      
-      <div className="max-w-7xl mx-auto px-4">
-        {(activeTab === 'feed' || activeTab === 'profile') && (
-          <ViewToggle activeTab={activeTab} setActiveTab={setActiveTab} />
-        )}
-      </div>
 
-      {isMobile ? (
-        <MobileDashboard {...dashboardProps} renderTabContent={renderTabContent} />
-      ) : (
-        <DesktopDashboard {...dashboardProps} renderTabContent={renderTabContent} />
-      )}
-
-
-
-
-
-
-
-
-
-
+      <MemberShell
+        user={user}
+        profile={profile}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        renderTabContent={renderTabContent}
+        logout={logout}
+        updateProfile={updateProfile}
+        notificationCount={notifications.length}
+      />
 
       {/* Celebration Overlay */}
       <CelebrationOverlay showCelebration={showCelebration} celebratedMission={celebratedMission} />

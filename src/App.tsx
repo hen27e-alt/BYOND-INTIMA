@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { ScrollToTop } from './components/ScrollToTop';
@@ -29,7 +29,6 @@ const Experience = React.lazy(() => import('./pages/Experience').then(module => 
 const TheJourney = React.lazy(() => import('./pages/TheJourney').then(module => ({ default: module.TheJourney })));
 const Boutique = React.lazy(() => import('./pages/Boutique').then(module => ({ default: module.Boutique })));
 const Dashboard = React.lazy(() => import('./pages/Dashboard').then(module => ({ default: module.Dashboard })));
-const Profile = React.lazy(() => import('./pages/Profile').then(module => ({ default: module.Profile })));
 const Games = React.lazy(() => import('./pages/Games').then(module => ({ default: module.Games })));
 const RecipeDetail = React.lazy(() => import('./pages/RecipeDetail').then(module => ({ default: module.RecipeDetail })));
 const About = React.lazy(() => import('./pages/About').then(module => ({ default: module.About })));
@@ -149,15 +148,15 @@ import { useTheme } from './contexts/ThemeContext';
 const ProfileSync = () => {
   const { profile } = useFirebase();
   const { setLanguage } = useLanguage();
-  const { setTheme, setFontSize } = useTheme();
+  const { setFontSize } = useTheme();
 
   useEffect(() => {
     if (profile) {
       if (profile.language) setLanguage(profile.language as any);
-      if (profile.theme) setTheme(profile.theme as any);
+      // The season design has one palette; an old saved 'dark' choice is ignored.
       if (profile.fontSize) setFontSize(profile.fontSize as any);
     }
-  }, [profile, setLanguage, setTheme, setFontSize]);
+  }, [profile, setLanguage, setFontSize]);
 
   return null;
 };
@@ -184,7 +183,7 @@ const AppContent = () => {
             <Route path="/journey" element={<TheJourney />} />
             <Route path="/boutique" element={<Boutique />} />
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/profile" element={<Profile />} />
+            <Route path="/profile" element={<Navigate to="/dashboard#profile" replace />} />
             <Route path="/games" element={<Games />} />
             <Route path="/decks" element={<CardDecks />} />
             <Route path="/decks/:id" element={<DeckDetail />} />

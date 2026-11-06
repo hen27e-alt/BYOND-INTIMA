@@ -193,28 +193,24 @@ export const MissionsTab: React.FC<MissionsTabProps> = ({
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-      {/* Overall Missions Progress Bar */}
-      <div className="bg-white border border-brand-gold/10 p-8 mb-8">
-        <div className="flex justify-between items-end mb-4">
-          <div>
-            <h4 className="text-xs uppercase tracking-[0.3em] text-brand-black/40 mb-2">{t('missions.progress.next_medal')}</h4>
-            <p className="text-2xl font-serif">מדליית "חיבור עמוק"</p>
+      {/* Real progress: how many of the shared missions are done */}
+      {missions.length > 0 && (() => {
+        const done = missions.filter(isCompleted).length;
+        const pct = Math.round((done / missions.length) * 100);
+        return (
+          <div className="mb-8 border-y-[3px] border-ink py-5">
+            <div className="flex items-end justify-between gap-4">
+              <p className="text-lg font-bold">
+                השלמתם {done} מתוך {missions.length} משימות
+              </p>
+              <span className="font-display text-4xl font-bold leading-none text-spot tabular-nums">{pct}%</span>
+            </div>
+            <div className="mt-3 h-[6px] bg-rule" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="התקדמות במשימות">
+              <div className="h-full bg-spot" style={{ width: `${pct}%` }} />
+            </div>
           </div>
-          <span className="text-brand-gold font-bold">65%</span>
-        </div>
-        <div className="h-3 bg-brand-gold/10 rounded-full overflow-hidden">
-          <motion.div 
-            initial={{ width: 0 }}
-            animate={{ width: '65%' }}
-            transition={{ duration: 1, ease: "easeOut" }}
-            className="h-full bg-brand-gold shadow-[0_0_15px_rgba(201,169,110,0.5)]"
-          />
-        </div>
-        <div className="flex justify-between mt-4">
-          <p className="text-[10px] text-brand-black/40 mt-4 uppercase tracking-widest">{t('missions.progress.remaining').replace('{points}', '350')}</p>
-          <p className="text-[10px] text-brand-gold uppercase tracking-widest font-bold">{missions.filter(isCompleted).length}/{missions.length} משימות</p>
-        </div>
-      </div>
+        );
+      })()}
 
       <div className="flex flex-col space-y-6">
         <div className="flex items-center justify-between">

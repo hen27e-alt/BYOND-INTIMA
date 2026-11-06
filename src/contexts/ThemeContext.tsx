@@ -13,18 +13,19 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setTheme] = useState<Theme>(() => {
-    const saved = localStorage.getItem('byond-theme');
-    return (saved as Theme) || 'light';
-  });
+  // The season design ships one palette, so an old saved 'dark' is not restored.
+  const [theme, setTheme] = useState<Theme>('light');
 
   const [fontSize, setFontSize] = useState<FontSize>(() => {
-    const saved = localStorage.getItem('byond-font-size');
-    return (saved as FontSize) || 'medium';
+    try {
+      const saved = localStorage.getItem('byond-font-size');
+      return saved === 'small' || saved === 'large' ? saved : 'medium';
+    } catch {
+      return 'medium';
+    }
   });
 
   useEffect(() => {
-    localStorage.setItem('byond-theme', theme);
     document.documentElement.classList.remove('theme-light', 'theme-dark', 'theme-romantic');
     document.documentElement.classList.add(`theme-${theme}`);
     
@@ -37,7 +38,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [theme]);
 
   useEffect(() => {
-    localStorage.setItem('byond-font-size', fontSize);
+    try {
+      localStorage.setItem('byond-font-size', fontSize);
+    } catch {}
     document.documentElement.classList.remove('font-small', 'font-medium', 'font-large');
     document.documentElement.classList.add(`font-${fontSize}`);
     

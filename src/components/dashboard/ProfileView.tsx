@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
-import { User as UserIcon, Zap, Clock, Shield, LogOut, Sun, Moon, Type as TypeIcon, Calendar } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { useTheme } from '../../contexts/ThemeContext';
+import { PartnerLink } from './PartnerLink';
+import { cn } from '../../lib/utils';
 
 interface ProfileViewProps {
   profile: any;
@@ -11,185 +12,169 @@ interface ProfileViewProps {
   notifications: any[];
 }
 
+const Section = ({ n, title, children }: { n: string; title: string; children: React.ReactNode }) => (
+  <section className="grid gap-4 border-b border-ink py-8 md:grid-cols-[200px_1fr] md:gap-10">
+    <h2 className="flex items-baseline gap-3 font-display text-4xl font-bold leading-none">
+      <span className="text-spot tabular-nums">{n}</span>
+      {title}
+    </h2>
+    <div>{children}</div>
+  </section>
+);
+
+const Choice = ({ on, onClick, children, disabled }: { on: boolean; onClick: () => void; children: React.ReactNode; disabled?: boolean }) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    aria-pressed={on}
+    className={cn('border-2 border-ink px-4 py-2.5 text-base font-bold disabled:opacity-50', on ? 'bg-ink text-paper' : 'hover:bg-ink hover:text-paper')}
+  >
+    {children}
+  </button>
+);
+
+const dateOf = (d: any) => (d?.toDate ? d.toDate() : new Date(d)).toLocaleDateString('he-IL');
+
+/** Profile room: who you are, your partner, and the few settings that actually change something. */
 export const ProfileView = ({ profile, updateProfile, logout, setActiveTab, notifications }: ProfileViewProps) => {
   const { language, setLanguage } = useLanguage();
-  const [isUpdating, setIsUpdating] = useState(false);
+  const { fontSize, setFontSize } = useTheme();
+  const [busy, setBusy] = useState(false);
+  const [name, setName] = useState<string>(profile?.displayName ?? '');
+  const [partner, setPartner] = useState<string>(profile?.partnerName ?? '');
+  const [saved, setSaved] = useState(false);
+  const notify = profile?.preferences?.notificationsEnabled !== false;
 
-  const handleLanguageChange = async (lang: any) => {
-    setIsUpdating(true);
+  const save = async (data: Record<string, unknown>) => {
+    setBusy(true);
     try {
-      setLanguage(lang);
-      await updateProfile({ language: lang });
+      await updateProfile(data);
     } finally {
-      setIsUpdating(false);
+      setBusy(false);
     }
   };
 
-  const handleThemeToggle = async () => {
-    const newTheme = profile?.theme === 'dark' ? 'light' : 'dark';
-    await updateProfile({ theme: newTheme });
+  const changed = name.trim() !== (profile?.displayName ?? '') || partner.trim() !== (profile?.partnerName ?? '');
+  const saveNames = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !changed) return;
+    await save({ displayName: name.trim().slice(0, 40), partnerName: partner.trim().slice(0, 40) });
+    setSaved(true);
+    window.setTimeout(() => setSaved(false), 2500);
   };
 
-  const handleFontSizeChange = async (size: 'small' | 'medium' | 'large') => {
-    await updateProfile({ fontSize: size });
-  };
-
-  const handleDefaultDurationChange = async (days: number) => {
-    await updateProfile({ defaultMissionDuration: days });
-  };
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      className="space-y-8 pb-20"
-    >
-      <div className="bg-white p-8 rounded-[32px] shadow-sm border border-brand-gold/10">
-        <h2 className="text-2xl font-serif mb-6">הגדרות פרופיל</h2>
-        
-        <div className="space-y-8">
-          <div className="flex items-center gap-4 p-4 bg-brand-gold/5 rounded-2xl border border-brand-gold/10">
-            <div className="w-16 h-16 rounded-full border-2 border-brand-gold p-1 overflow-hidden">
-              {profile?.photoURL ? (
-                <img src={profile.photoURL} alt="" className="w-full h-full rounded-full object-cover" />
-              ) : (
-                <img 
-                  src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${profile?.uid || 'Byonder'}`}
-                  alt="" 
-                  className="w-full h-full rounded-full object-cover bg-brand-cream" 
-                />
-              )}
-            </div>
-            <div>
-              <h3 className="font-serif text-lg">{profile?.displayName || 'משתמש'}</h3>
-              <p className="text-sm text-brand-black/40">{profile?.email}</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-4">
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-black/40">שפה (Language)</label>
-              <div className="flex gap-3">
-                <button 
-                  onClick={() => handleLanguageChange('he')}
-                  disabled={isUpdating}
-                  className={`flex-1 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border ${language === 'he' ? 'bg-brand-black text-white border-brand-black' : 'bg-white text-brand-black/60 border-brand-gold/20'}`}
-                >
-                  עברית
-                </button>
-                <button 
-                  onClick={() => handleLanguageChange('en')}
-                  disabled={isUpdating}
-                  className={`flex-1 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border ${language === 'en' ? 'bg-brand-black text-white border-brand-black' : 'bg-white text-brand-black/60 border-brand-gold/20'}`}
-                >
-                  English
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-black/40">התראות משימות</label>
-              <button 
-                onClick={() => updateProfile({ notificationsEnabled: !profile?.notificationsEnabled })}
-                className={`w-full flex items-center justify-between px-6 py-4 rounded-xl text-sm font-medium transition-all border ${profile?.notificationsEnabled ? 'bg-green-50 text-green-600 border-green-200' : 'bg-brand-gold/5 text-brand-black/60 border-brand-gold/10'}`}
-              >
-                <div className="flex items-center gap-3">
-                  <Zap size={18} className={profile?.notificationsEnabled ? 'text-green-500' : 'text-brand-black/20'} />
-                  <span className="font-bold uppercase tracking-widest text-[10px]">התראות פעילות</span>
-                </div>
-                <div className={`w-10 h-5 rounded-full relative transition-colors ${profile?.notificationsEnabled ? 'bg-green-500' : 'bg-brand-black/20'}`}>
-                  <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${profile?.notificationsEnabled ? 'right-6' : 'right-1'}`} />
-                </div>
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-4">
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-black/40">העדפות תצוגה (Display)</label>
-              <div className="flex gap-3">
-                <button 
-                  onClick={handleThemeToggle}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border ${profile?.theme === 'dark' ? 'bg-brand-black text-white border-brand-black' : 'bg-white text-brand-black/60 border-brand-gold/20'}`}
-                >
-                  {profile?.theme === 'dark' ? <Moon size={14} /> : <Sun size={14} />}
-                  {profile?.theme === 'dark' ? 'מצב לילה' : 'מצב יום'}
-                </button>
-                <div className="flex-1 flex gap-1">
-                  {(['small', 'medium', 'large'] as const).map((size) => (
-                    <button
-                      key={size}
-                      onClick={() => handleFontSizeChange(size)}
-                      className={`flex-1 flex items-center justify-center p-2 rounded-xl border transition-all ${profile?.fontSize === size ? 'bg-brand-black text-white border-brand-black' : 'bg-white text-brand-black/60 border-brand-gold/20'}`}
-                    >
-                      <TypeIcon size={size === 'small' ? 12 : size === 'medium' ? 16 : 20} />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-black/40">הגדרות יעד (Mission Goals)</label>
-              <div className="flex items-center gap-3 p-4 bg-brand-gold/5 rounded-xl border border-brand-gold/10">
-                <Calendar size={18} className="text-brand-gold" />
-                <div className="flex-1">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-brand-black/60 mb-1">זמן יעד ברירת מחדל</p>
-                  <select 
-                    value={profile?.defaultMissionDuration || 7}
-                    onChange={(e) => handleDefaultDurationChange(parseInt(e.target.value))}
-                    className="w-full bg-transparent text-xs font-bold outline-none cursor-pointer"
-                  >
-                    <option value={3}>3 ימים</option>
-                    <option value={7}>שבוע</option>
-                    <option value={14}>שבועיים</option>
-                    <option value={30}>חודש</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {notifications.length > 0 && (
-            <div className="space-y-4">
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-black/40">התראות קרובות</label>
-              <div className="space-y-2">
-                {notifications.map((n: any) => (
-                  <div key={n.id} className="flex items-center justify-between p-4 bg-amber-50 rounded-xl border border-amber-100">
-                    <div className="flex items-center gap-3">
-                      <Clock size={16} className="text-amber-500" />
-                      <div>
-                        <p className="text-xs font-bold text-amber-900">{n.title}</p>
-                        <p className="text-[10px] text-amber-700">יעד קרוב: {n.deadline.toDate ? n.deadline.toDate().toLocaleDateString('he-IL') : new Date(n.deadline).toLocaleDateString('he-IL')}</p>
-                      </div>
-                    </div>
-                    <button 
-                      onClick={() => setActiveTab('missions')}
-                      className="text-[10px] font-bold uppercase tracking-widest text-amber-900 hover:underline"
-                    >
-                      למשימה
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="pt-8 border-t border-brand-gold/10 flex flex-col md:flex-row gap-4 justify-between items-center">
-            <div className="flex items-center gap-2 text-brand-black/40 text-[10px] font-bold uppercase tracking-widest">
-              <Shield size={14} />
-              המידע שלכם מאובטח ומוצפן
-            </div>
-            <button 
-              onClick={logout}
-              className="flex items-center gap-2 text-red-500 font-bold uppercase tracking-widest text-[10px] hover:bg-red-50 px-6 py-3 rounded-full transition-all"
-            >
-              <LogOut size={16} />
-              התנתקות מהמערכת
+    <div className="max-w-4xl">
+      <Section n="01" title="אתם">
+        <form onSubmit={saveNames} className="grid gap-5 sm:grid-cols-2">
+          <label>
+            <span className="mb-1 block text-sm font-bold">השם שלכם</span>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={40}
+              required
+              className="w-full border-b-[3px] border-ink bg-transparent py-2 text-xl font-bold outline-none focus:border-spot"
+            />
+          </label>
+          <label>
+            <span className="mb-1 block text-sm font-bold">השם של בן או בת הזוג</span>
+            <input
+              value={partner}
+              onChange={(e) => setPartner(e.target.value)}
+              maxLength={40}
+              className="w-full border-b-[3px] border-ink bg-transparent py-2 text-xl font-bold outline-none focus:border-spot"
+            />
+          </label>
+          <div className="flex items-center gap-4 sm:col-span-2">
+            <button disabled={busy || !name.trim() || !changed} className="bg-ink px-5 py-2.5 font-bold text-paper hover:bg-spot disabled:opacity-40">
+              לשמור
             </button>
+            <span role="status" className="text-sm font-bold text-spot">
+              {saved ? 'נשמר' : ''}
+            </span>
           </div>
+        </form>
+        <p className="mt-4 text-base text-ink/70">
+          <bdi>{profile?.email}</bdi>
+          {profile?.loveLanguage && <> · שפת האהבה: {profile.loveLanguage}</>}
+        </p>
+      </Section>
+
+      <Section n="02" title="בן או בת הזוג">
+        <PartnerLink />
+      </Section>
+
+      {notifications.length > 0 && (
+        <Section n="03" title="קרוב לסיום">
+          <ul>
+            {notifications.map((m: any) => (
+              <li key={m.id} className="flex items-center justify-between gap-4 border-b border-rule py-3 last:border-0">
+                <span>
+                  <span className="block font-bold">{m.title}</span>
+                  <span className="text-sm text-ink/70">עד {dateOf(m.deadline)}</span>
+                </span>
+                <button onClick={() => setActiveTab('missions')} className="text-sm font-bold underline underline-offset-4 hover:text-spot">
+                  למשימה
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+
+      <Section n={notifications.length ? '04' : '03'} title="העדפות">
+        <div className="space-y-6">
+          <div>
+            <p className="mb-2 text-sm font-bold">שפה</p>
+            <div className="flex flex-wrap gap-2">
+              <Choice on={language === 'he'} disabled={busy} onClick={() => { setLanguage('he'); void save({ language: 'he' }); }}>
+                עברית
+              </Choice>
+              <Choice on={language === 'en'} disabled={busy} onClick={() => { setLanguage('en'); void save({ language: 'en' }); }}>
+                English
+              </Choice>
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-sm font-bold">גודל הטקסט</p>
+            <div className="flex flex-wrap gap-2">
+              {([['small', 'קטן'], ['medium', 'רגיל'], ['large', 'גדול']] as const).map(([v, l]) => (
+                <Choice key={v} on={fontSize === v} onClick={() => { setFontSize(v); void save({ fontSize: v }); }}>
+                  {l}
+                </Choice>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-sm font-bold">כמה זמן יש למשימה חדשה</p>
+            <div className="flex flex-wrap gap-2">
+              {([[3, '3 ימים'], [7, 'שבוע'], [14, 'שבועיים'], [30, 'חודש']] as const).map(([d, l]) => (
+                <Choice key={d} on={(profile?.defaultMissionDuration || 7) === d} disabled={busy} onClick={() => void save({ defaultMissionDuration: d })}>
+                  {l}
+                </Choice>
+              ))}
+            </div>
+          </div>
+          <label className="flex cursor-pointer items-center gap-3">
+            <input
+              type="checkbox"
+              checked={notify}
+              disabled={busy}
+              onChange={() => void save({ preferences: { ...(profile?.preferences ?? {}), notificationsEnabled: !notify } })}
+              className="h-5 w-5 accent-[var(--color-accent)]"
+            />
+            <span className="text-base font-bold">תזכורות על משימות ואתגרים</span>
+          </label>
         </div>
+      </Section>
+
+      <div className="flex flex-wrap items-center justify-between gap-4 py-8">
+        <p className="text-sm text-ink/70">הפרטים שלכם נשמרים בחשבון ולא מוצגים לאף אחד אחר.</p>
+        <button onClick={logout} className="border-2 border-ink px-5 py-2.5 font-bold hover:bg-ink hover:text-paper">
+          יציאה מהחשבון
+        </button>
       </div>
-    </motion.div>
+    </div>
   );
 };

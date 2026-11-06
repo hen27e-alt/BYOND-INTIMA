@@ -25,6 +25,8 @@
   --color-spot: var(--color-accent);
   --color-room: #1C1A1E;
   --color-rule: var(--color-line);
+  /* Value is set per theme in the base layer below; listed here so bg-surface exists. */
+  --color-surface: #F8F4EC;
 }
 
 @layer base {
@@ -304,4 +306,26 @@
 *:focus-visible {
   outline: 3px solid #C5A059;
   outline-offset: 2px;
+}
+
+/* ---------- Season skin ----------
+   The member rooms were built for the old look (soft cards, gold hairlines, tiny tracked
+   caps). Inside .season-skin they take the season programme's language instead: square
+   corners, ink rules, no drop shadows, readable label sizes. Unlayered, so it wins over
+   Tailwind's utilities without !important. Full circles (rounded-full) are kept. */
+.season-skin {
+  --radius-xs: 0; --radius-sm: 0; --radius-md: 0; --radius-lg: 0;
+  --radius-xl: 0; --radius-2xl: 0; --radius-3xl: 0; --radius-4xl: 0;
+}
+.season-skin [class*="rounded-["],
+.season-skin .rounded { border-radius: 0; }
+.season-skin [class*="shadow"] { box-shadow: none; }
+.season-skin [class*="backdrop-blur"] { backdrop-filter: none; }
+.season-skin .italic { font-style: normal; }
+.season-skin [class*="tracking-"] { letter-spacing: normal; }
+.season-skin .text-\[8px\], .season-skin .text-\[9px\], .season-skin .text-\[10px\], .season-skin .text-\[11px\] { font-size: 0.8125rem; }
+.season-skin .bg-white, .season-skin [class*="bg-white/"] { background-color: var(--color-surface); }
+.season-skin [class*="border-brand-gold"], .season-skin [class*="border-brand-black/"] { border-color: var(--color-line); }
+.season-skin h1.font-serif, .season-skin h2.font-serif, .season-skin h3.font-serif {
+  font-family: var(--font-display); font-weight: 700; line-height: 0.95; font-size: 2.5em;
 }
