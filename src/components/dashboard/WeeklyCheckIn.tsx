@@ -5,7 +5,7 @@ import { ClipboardCheck, Heart, MessageCircle, Star, Sparkles, ChevronRight, Loa
 import { useFirebase } from '../../contexts/FirebaseContext';
 import { db, handleFirestoreError, OperationType } from '../../firebase';
 import { collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, limit } from 'firebase/firestore';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from '../../lib/ai';
 import { useAlert } from '../AlertModal';
 
 export const WeeklyCheckIn = () => {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Key, Lock, Unlock, ArrowRight, CheckCircle2, AlertCircle, Send, Loader2, Sparkles, Image as ImageIcon } from 'lucide-react';
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenAI, Type } from '../lib/ai';
 import { useFirebase } from '../contexts/FirebaseContext';
 
 const ESCAPE_ROOMS = [

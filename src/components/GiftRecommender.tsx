@@ -4,7 +4,7 @@ import { Gift, Sparkles, Loader2, Heart, Search, BookmarkPlus, Bookmark, Trash2,
 import { useFirebase } from '../contexts/FirebaseContext';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type } from '../lib/ai';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 

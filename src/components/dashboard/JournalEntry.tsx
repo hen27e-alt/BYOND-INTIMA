@@ -7,7 +7,7 @@ import { cn } from '../../lib/utils';
 import { doc, updateDoc, arrayUnion, collection, addDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../firebase';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI } from '../../lib/ai';
 
 export const JournalEntry = ({ existingTags = [] }: { existingTags?: string[] }) => {
   const { user, profile } = useFirebase();

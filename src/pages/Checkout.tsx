@@ -1,7 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Minus, Plus, X } from 'lucide-react';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { useCart } from '../contexts/CartContext';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -9,7 +8,6 @@ import { useAlert } from '../components/AlertModal';
 import { Ticket } from '../components/season/Ticket';
 import { cardDecks } from '../data/decks';
 import { type Product, useCatalogue } from '../lib/catalogue';
-import { db } from '../firebase';
 import { cn } from '../lib/utils';
 
 const FREE_SHIPPING_FROM = 300;
@@ -106,34 +104,21 @@ export const Checkout = () => {
     }));
 
     try {
-      let orderId: string | undefined;
-      if (user) {
-        try {
-          const ref = await addDoc(collection(db, 'orders'), {
-            userId: user.uid,
-            customerDetails: { ...form },
-            items,
-            subtotal,
-            shipping,
-            totalAmount: total,
-            paymentMethod,
-            status: 'pending',
-            createdAt: serverTimestamp(),
-          });
-          orderId = ref.id;
-        } catch (err) {
-          console.error('Could not save order to Firestore', err);
-        }
-      }
-
-      const response = await fetch('/api/checkout/decks', {
+      const token = user ? await user.getIdToken().catch(() => null) : null;
+      const response = await fetch('/api/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ formData: form, cart: items, total, paymentMethod, orderId }),
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ customer: form, items: items.map(({ id, quantity, personalization }) => ({ id, quantity, personalization })), paymentMethod }),
       });
       const data = await response.json().catch(() => ({}));
-
-      if (!response.ok || !data.success) throw new Error(data.error || `HTTP ${response.status}`);
+      if (!response.ok || !data.success) {
+        // The server explains in words (payments off, an item sold out); show that, keep the cart.
+        if (data.error) {
+          showAlert(data.error, tx('ההזמנה לא נשלחה', 'Order not sent'));
+          return;
+        }
+        throw new Error(`HTTP ${response.status}`);
+      }
 
       if (data.paymentUrl) {
         window.location.href = data.paymentUrl;
@@ -146,10 +131,10 @@ export const Checkout = () => {
           orderData: {
             orderId: data.orderId,
             customerName: `${form.firstName} ${form.lastName}`,
-            total,
+            total: data.total ?? total,
             address: `${form.address}, ${form.city}`,
             phone: form.phone,
-            items,
+            items: data.items ?? items,
           },
         },
       });

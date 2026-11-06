@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MessageCircle, Heart, RefreshCw, Send, Sparkles, Loader2, Smile, Flag } from 'lucide-react';
 import { useAlert } from './AlertModal';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from '../lib/ai';
 
 export const ApologyGenerator = () => {
   const [currentApology, setCurrentApology] = useState<string | null>(null);

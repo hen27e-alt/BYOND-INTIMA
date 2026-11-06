@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Award, Book, Trophy, Star, Lock, ChevronRight, PlusCircle, Download, Heart, Zap, Lightbulb, Image as ImageIcon, ExternalLink, LogIn, RefreshCw, Mic, Play, Search, Sparkles, Film, Utensils, Map, HelpCircle, Calendar, Wine, Volume2, Pause, Loader2, X, Gamepad2, User as UserIcon, LogOut, Trash2, Check, Music, Disc, BookOpen, MessageCircle, ClipboardCheck, ListTodo, Activity, PiggyBank, Clock, Shield, Dices, BarChart3, Smile, Home, Gift, Moon, MessageSquareWarning, Flag, Flame, Brain, Mail, MapPin, Coffee } from 'lucide-react';
 import { KitchenCards } from '../components/KitchenCards';
 import { EditableText } from '../components/EditableText';
-import { GoogleGenAI, Modality, Type } from "@google/genai";
+import { GoogleGenAI, Modality, Type } from '../lib/ai';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAlert } from '../components/AlertModal';

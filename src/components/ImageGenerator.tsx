@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Image as ImageIcon, Sparkles, Loader2, Download, RefreshCw } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from '../lib/ai';
 
 declare global {
   interface Window {

@@ -6,7 +6,7 @@ import { db, auth } from '../firebase';
 import { collection, addDoc, onSnapshot, query, where, orderBy, deleteDoc, doc, updateDoc, serverTimestamp, getDocFromServer } from 'firebase/firestore';
 import { BRANDING } from '../constants/branding';
 import { cn } from '../lib/utils';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from '../lib/ai';
 
 enum OperationType {
   CREATE = 'create',

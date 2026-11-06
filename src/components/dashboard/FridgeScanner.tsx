@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { RefreshCw, ChefHat, Loader2, Utensils } from 'lucide-react';
 import { motion } from 'motion/react';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from '../../lib/ai';
 import { useNavigate } from 'react-router-dom';
 
 export const FridgeScanner = ({ onCooked, cookedCount }: { onCooked: () => void, cookedCount: number }) => {

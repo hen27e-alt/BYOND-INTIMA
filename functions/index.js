@@ -1,51 +1,20 @@
-const {setGlobalOptions} = require("firebase-functions");
-const {onRequest} = require("firebase-functions/https");
-const express = require("express");
-const fetch = require("node-fetch");
+// Firebase Functions entry: the whole /api lives in one function, reached through
+// the hosting rewrite in firebase.json. Keys are Secret Manager secrets.
+import { onRequest } from 'firebase-functions/v2/https';
+import { defineSecret } from 'firebase-functions/params';
+import { initializeApp } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
+import { createApp } from './src/app.js';
 
-setGlobalOptions({ maxInstances: 10 });
+const DATABASE_ID = 'ai-studio-1369fc46-d67d-482a-b4c5-dae7d8c9dda1';
+const secrets = ['GEMINI_API_KEY', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'TMDB_API_KEY'].map((n) => defineSecret(n));
 
-const app = express();
-app.use(express.json());
-
-const TMDB_API_KEY = process.env.TMDB_API_KEY;
-const TMDB_BASE_URL = "https://api.themoviedb.org/3";
-
-app.get("/movies/search", async (req, res) => {
-  const { query } = req.query;
-  const response = await fetch(`${TMDB_BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&query=${query}&language=he-IL`);
-  const data = await response.json();
-  res.json(data);
+const admin = initializeApp();
+const app = createApp({
+  db: () => getFirestore(admin, DATABASE_ID),
+  auth: () => getAuth(admin),
+  baseUrl: (req) => process.env.APP_URL || `https://${req.get('x-forwarded-host') || req.get('host')}`,
 });
 
-app.get("/movies/popular", async (req, res) => {
-  const response = await fetch(`${TMDB_BASE_URL}/movie/popular?api_key=${TMDB_API_KEY}&language=he-IL`);
-  const data = await response.json();
-  res.json(data);
-});
-
-app.get("/movies/top_rated", async (req, res) => {
-  const response = await fetch(`${TMDB_BASE_URL}/movie/top_rated?api_key=${TMDB_API_KEY}&language=he-IL`);
-  const data = await response.json();
-  res.json(data);
-});
-
-app.get("/movies/genre/:id", async (req, res) => {
-  const { id } = req.params;
-  const response = await fetch(`${TMDB_BASE_URL}/discover/movie?api_key=${TMDB_API_KEY}&with_genres=${id}&language=he-IL&sort_by=popularity.desc`);
-  const data = await response.json();
-  res.json(data);
-});
-
-app.get("/movies/details/:id", async (req, res) => {
-  const { id } = req.params;
-  const [movieRes, videoRes] = await Promise.all([
-    fetch(`${TMDB_BASE_URL}/movie/${id}?api_key=${TMDB_API_KEY}&language=he-IL`),
-    fetch(`${TMDB_BASE_URL}/movie/${id}/videos?api_key=${TMDB_API_KEY}&language=en-US`)
-  ]);
-  const movieData = await movieRes.json();
-  const videoData = await videoRes.json();
-  res.json({ ...movieData, videos: videoData.results });
-});
-
-exports.api = onRequest(app);
+export const api = onRequest({ region: 'us-central1', secrets, memory: '512MiB', timeoutSeconds: 120, maxInstances: 10 }, app);

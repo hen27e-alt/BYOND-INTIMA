@@ -4,7 +4,7 @@ import { Calendar as CalendarIcon, Plus, Sparkles, CheckCircle2, Loader2, Clock,
 import { useFirebase } from '../contexts/FirebaseContext';
 import { db } from '../firebase';
 import { collection, addDoc, query, orderBy, onSnapshot, updateDoc, doc, increment } from 'firebase/firestore';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from '../lib/ai';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 

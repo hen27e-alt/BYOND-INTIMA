@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type } from '../lib/ai';
 import { Loader2, ChefHat, X, Utensils, Sparkles, Clock, ChefHat as ChefHatIcon } from 'lucide-react';
 
 const categories = [

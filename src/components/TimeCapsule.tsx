@@ -6,7 +6,7 @@ import { useAlert } from './AlertModal';
 import { db, storage } from '../firebase';
 import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI } from '../lib/ai';
 
 interface Capsule {
   id: string;

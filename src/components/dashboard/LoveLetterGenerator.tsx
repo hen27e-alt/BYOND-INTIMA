@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Heart, Send, Sparkles, Loader2, RefreshCw, PenTool } from 'lucide-react';
 import { useAlert } from '../AlertModal';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from '../../lib/ai';
 
 const OCCASIONS = [
   { id: 'anniversary', label: 'יום נישואין/חברות' },

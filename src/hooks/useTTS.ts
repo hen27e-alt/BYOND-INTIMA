@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { GoogleGenAI, Modality } from '@google/genai';
+import { GoogleGenAI, Modality } from '../lib/ai';
 
 export const useTTS = () => {
   const [isPlaying, setIsPlaying] = useState(false);

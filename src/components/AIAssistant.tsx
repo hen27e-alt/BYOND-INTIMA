@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Send, Bot, User, Sparkles, Loader2, Heart, ThumbsUp, ThumbsDown, Volume2, VolumeX } from 'lucide-react';
-import { GoogleGenAI, Modality } from '@google/genai';
+import { GoogleGenAI, Modality } from '../lib/ai';
 
 interface Message {
   id: string;

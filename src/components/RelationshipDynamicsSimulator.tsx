@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MessageSquareWarning, Send, Loader2, User, Bot, RefreshCw, Sparkles, Brain } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from '../lib/ai';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 

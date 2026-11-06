@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Quote, X, Loader2, Sparkles } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from '../lib/ai';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export const MotivationModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {

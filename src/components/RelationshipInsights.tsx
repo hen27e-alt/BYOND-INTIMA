@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, Brain, Heart, Zap, Loader2, RefreshCw, ChevronRight } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from '../lib/ai';
 import { useFirebase } from '../contexts/FirebaseContext';
 
 export const RelationshipInsights = () => {

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { GoogleGenAI, Modality } from "@google/genai";
+import { GoogleGenAI, Modality } from '../lib/ai';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Video, 

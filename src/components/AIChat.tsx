@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MessageCircle, X, Send, Sparkles, Loader2, Video, Film, Maximize, Minimize, Phone, Volume2, Square, HeartHandshake, Download, Terminal, Image as ImageIcon, ChevronLeft, ChevronRight, Share2, History, Trash2, HelpCircle, Search, PlusCircle } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from '../lib/ai';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebase';
 import { BRANDING } from '../constants/branding';

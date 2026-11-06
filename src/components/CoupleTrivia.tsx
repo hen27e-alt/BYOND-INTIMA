@@ -4,7 +4,7 @@ import { Brain, Trophy, Loader2, CheckCircle, XCircle, Users, Play, Sparkles, He
 import { useFirebase } from '../contexts/FirebaseContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, doc, setDoc, onSnapshot, updateDoc, serverTimestamp, query, where, getDocs, deleteDoc } from 'firebase/firestore';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from '../lib/ai';
 import { useAlert } from '../components/AlertModal';
 
 interface TriviaGame {

@@ -7,7 +7,7 @@ import { db, handleFirestoreError, OperationType } from '../../firebase';
 import { collection, query, where, getDocs, orderBy, deleteDoc, doc, updateDoc, addDoc } from 'firebase/firestore';
 import { JournalEntry as NewJournalEntry } from './JournalEntry';
 import { cn } from '../../lib/utils';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI } from '../../lib/ai';
 import Markdown from 'react-markdown';
 
 import { useAlert } from '../AlertModal';

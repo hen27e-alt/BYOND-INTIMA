@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from '../lib/ai';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   MapPin, 

@@ -4,7 +4,7 @@ import { Calendar, Clock, MapPin, Zap, Sparkles, RefreshCw, Heart, MessageCircle
 import { useFirebase } from '../contexts/FirebaseContext';
 import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type } from '../lib/ai';
 import { useLanguage } from '../contexts/LanguageContext';
 
 const QUESTIONS = [

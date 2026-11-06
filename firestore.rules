@@ -145,7 +145,8 @@ service cloud.firestore {
 
     match /orders/{orderId} {
       allow read: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
-      allow create: if isAuthenticated() && incoming().userId == request.auth.uid;
+      // Orders are written by the server (functions/src/app.js) with server-side prices.
+      allow create: if false;
       allow update, delete: if isAdmin();
     }
 

@@ -5,7 +5,7 @@ import { useFirebase } from '../contexts/FirebaseContext';
 import { useAlert } from './AlertModal';
 import { db } from '../firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI } from '../lib/ai';
 
 export const MonthlyStats = () => {
   const { profile } = useFirebase();

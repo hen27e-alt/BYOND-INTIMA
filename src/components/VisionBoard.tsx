@@ -4,7 +4,7 @@ import { Plus, Image as ImageIcon, X, Sparkles, Heart, Camera, Loader2 } from 'l
 import { useFirebase } from '../contexts/FirebaseContext';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI } from '../lib/ai';
 
 interface VisionItem {
   id: string;

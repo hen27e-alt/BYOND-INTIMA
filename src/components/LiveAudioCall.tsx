@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
+import { GoogleGenAI, LiveServerMessage, Modality } from '../lib/ai';
 import { AudioStreamer, AudioPlayer } from '../lib/audio';
 import { BRANDING } from '../constants/branding';
 import { Phone, PhoneOff, Mic, MicOff, Loader2, Video, VideoOff, Maximize2, Minimize2 } from 'lucide-react';

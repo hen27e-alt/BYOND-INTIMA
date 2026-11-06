@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Sparkles, Loader2, Music } from 'lucide-react';
 import { motion } from 'motion/react';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from '../../lib/ai';
 
 export const AiPlaylistGenerator = ({ onSave }: { onSave: (playlist: any) => void }) => {
   const [aiPlaylistPrompt, setAiPlaylistPrompt] = useState('');

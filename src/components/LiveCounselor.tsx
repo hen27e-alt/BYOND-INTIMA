@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mic, MicOff, Loader2, Volume2, Square, Activity, HeartHandshake, AlertCircle, CheckCircle2, MessageSquare, ShieldAlert } from 'lucide-react';
-import { GoogleGenAI, LiveServerMessage, Modality } from "@google/genai";
+import { GoogleGenAI, LiveServerMessage, Modality } from '../lib/ai';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { useAlert } from './AlertModal';
 

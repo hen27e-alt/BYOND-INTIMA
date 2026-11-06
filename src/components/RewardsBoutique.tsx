@@ -4,7 +4,7 @@ import { ShoppingBag, Music, Lock, Unlock, Ticket, Sparkles, Loader2, Star, Gift
 import { useFirebase } from '../contexts/FirebaseContext';
 import { db } from '../firebase';
 import { doc, updateDoc, increment, arrayUnion } from 'firebase/firestore';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from '../lib/ai';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 

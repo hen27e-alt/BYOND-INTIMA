@@ -1,0 +1,172 @@
+{
+  "boutique_robes": {
+    "name": "חלוקי סאטן זוגיים",
+    "price": 350,
+    "kind": "boutique"
+  },
+  "boutique_wine_glasses": {
+    "name": "מארז כוסות יין קריסטל",
+    "price": 180,
+    "kind": "boutique"
+  },
+  "boutique_whiskey_glasses": {
+    "name": "מארז כוסות וויסקי יוקרתי",
+    "price": 220,
+    "kind": "boutique"
+  },
+  "boutique_cocktail_set": {
+    "name": "סט קוקטיילים מקצועי",
+    "price": 280,
+    "kind": "boutique"
+  },
+  "boutique_decanter": {
+    "name": "דקנטר חרוט אישי",
+    "price": 320,
+    "kind": "boutique"
+  },
+  "boutique_serving_tray": {
+    "name": "מגש אירוח שיש ועץ",
+    "price": 250,
+    "kind": "boutique"
+  },
+  "boutique_candle": {
+    "name": "נר אווירה יוקרתי בניחוח BYOND",
+    "price": 120,
+    "kind": "boutique"
+  },
+  "boutique_diffuser": {
+    "name": "מפיץ ריח יוקרתי",
+    "price": 160,
+    "kind": "boutique"
+  },
+  "boutique_towel": {
+    "name": "מגבות גוף פרימיום ממותגות",
+    "price": 150,
+    "kind": "boutique"
+  },
+  "boutique_bottle": {
+    "name": "בקבוק מים תרמי מעוצב",
+    "price": 140,
+    "kind": "boutique"
+  },
+  "boutique_mugs": {
+    "name": "ספלי קפה זוגיים אקסקלוסיביים",
+    "price": 110,
+    "kind": "boutique"
+  },
+  "boutique_massage_oil": {
+    "name": "שמן עיסוי אורגני מעורר",
+    "price": 160,
+    "kind": "boutique"
+  },
+  "boutique_silk_mask": {
+    "name": "מסכת עיניים משי טהור",
+    "price": 90,
+    "kind": "boutique"
+  },
+  "boutique_wallet": {
+    "name": "ארנק עור יוקרתי",
+    "price": 290,
+    "kind": "boutique"
+  },
+  "boutique_notebook": {
+    "name": "מחברת עור אישית",
+    "price": 180,
+    "kind": "boutique"
+  },
+  "boutique_couple_missions": {
+    "name": "קופסת משימות זוגיות",
+    "price": 190,
+    "kind": "boutique"
+  },
+  "boutique_intimacy_cards": {
+    "name": "קלפי אינטימיות",
+    "price": 150,
+    "kind": "boutique"
+  },
+  "boutique_premium_experience": {
+    "name": "חופשה זוגית אקסקלוסיבית",
+    "price": 4500,
+    "kind": "boutique"
+  },
+  "boutique_ai_portrait": {
+    "name": "דיוקן AI זוגי ממוסגר",
+    "price": 550,
+    "kind": "boutique"
+  },
+  "exp_spark": {
+    "name": "מארז דמדומים",
+    "price": 290,
+    "kind": "boutique"
+  },
+  "exp_velvet": {
+    "name": "מארז חצות",
+    "price": 580,
+    "kind": "boutique"
+  },
+  "exp_ecstasy": {
+    "name": "מארז עד אור הבוקר",
+    "price": 850,
+    "kind": "boutique"
+  },
+  "true": {
+    "name": "BYOND אמת",
+    "price": 119,
+    "kind": "deck"
+  },
+  "nasty": {
+    "name": "BYOND נועז",
+    "price": 129,
+    "kind": "deck"
+  },
+  "quick": {
+    "name": "BYOND מהיר",
+    "price": 99,
+    "kind": "deck"
+  },
+  "quickie": {
+    "name": "BYOND קליק",
+    "price": 139,
+    "kind": "deck"
+  },
+  "night": {
+    "name": "BYOND לילה",
+    "price": 149,
+    "kind": "deck"
+  },
+  "morning": {
+    "name": "BYOND בוקר",
+    "price": 119,
+    "kind": "deck"
+  },
+  "outside": {
+    "name": "BYOND בחוץ",
+    "price": 129,
+    "kind": "deck"
+  },
+  "kitchen-1": {
+    "name": "BYOND סימפוניית טעמים",
+    "price": 49,
+    "kind": "deck"
+  },
+  "kitchen-2": {
+    "name": "BYOND טעימה עיוורת",
+    "price": 39,
+    "kind": "deck"
+  },
+  "kitchen-3": {
+    "name": "BYOND סודות השף",
+    "price": 59,
+    "kind": "deck"
+  },
+  "kitchen-4": {
+    "name": "BYOND קינוח אינטימי",
+    "price": 45,
+    "kind": "deck"
+  },
+  "kitchen-5": {
+    "name": "BYOND בוקר של טעמים",
+    "price": 49,
+    "kind": "deck"
+  }
+}

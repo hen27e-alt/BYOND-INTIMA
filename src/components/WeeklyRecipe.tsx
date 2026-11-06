@@ -4,7 +4,7 @@ import { Utensils, Clock, Users, ChefHat, Heart, Loader2, ExternalLink, Flame, S
 import { db, auth } from '../firebase';
 import { collection, query, orderBy, limit, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc, getDocs, where } from 'firebase/firestore';
 import { useAlert } from './AlertModal';
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenAI, Type } from '../lib/ai';
 import { useTTS } from '../hooks/useTTS';
 import { ContentFeedback } from './ContentFeedback';
 

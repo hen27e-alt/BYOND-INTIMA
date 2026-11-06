@@ -590,7 +590,7 @@ export const FitnessDashboard = () => {
     if (!fitnessData || isGeneratingCoach) return;
     setIsGeneratingCoach(true);
     try {
-      const { GoogleGenAI } = await import('@google/genai');
+      const { GoogleGenAI } = await import('../lib/ai');
       const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
       const model = genAI.models.generateContent({
         model: 'gemini-3-flash-preview',
@@ -618,7 +618,7 @@ export const FitnessDashboard = () => {
     if (!fitnessData || isGeneratingWorkout) return;
     setIsGeneratingWorkout(true);
     try {
-      const { GoogleGenAI } = await import('@google/genai');
+      const { GoogleGenAI } = await import('../lib/ai');
       const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
       const model = genAI.models.generateContent({
         model: 'gemini-3-flash-preview',
@@ -640,7 +640,7 @@ export const FitnessDashboard = () => {
     if (!fitnessData || isGeneratingMealPlan) return;
     setIsGeneratingMealPlan(true);
     try {
-      const { GoogleGenAI } = await import('@google/genai');
+      const { GoogleGenAI } = await import('../lib/ai');
       const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
       const model = genAI.models.generateContent({
         model: 'gemini-3-flash-preview',

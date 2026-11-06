@@ -18,7 +18,7 @@ import {
   Search,
   Plus
 } from 'lucide-react';
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type } from '../../lib/ai';
 import { useFirebase } from '../../contexts/FirebaseContext';
 import { db } from '../../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
