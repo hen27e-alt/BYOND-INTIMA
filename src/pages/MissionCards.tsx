@@ -1,3 +1,4 @@
+import { E } from '../components/EditableText';
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -68,7 +69,7 @@ export const MissionCards = () => {
 
       <header className="mx-auto max-w-[1440px] px-4 pt-12 md:px-8 lg:px-14 lg:pt-20">
         <div className="grid gap-6 border-b-[3px] border-ink pb-8 lg:grid-cols-[1fr_minmax(0,460px)] lg:items-end">
-          <h1 className="font-display text-[clamp(4.5rem,13vw,11rem)] font-bold leading-[0.8]">קלפי המשימה</h1>
+          <h1 className="font-display text-[clamp(4.5rem,13vw,11rem)] font-bold leading-[0.8]"><E id="cards_title">קלפי המשימה</E></h1>
           <p className="text-lg leading-relaxed text-ink/80">
             {MISSION_CARDS.length} משימות לערב, בשלוש חפיסות לפי שעות הלילה. שולפים קלף, עושים מה שכתוב, ומעבירים את התור. כל מארז מגיע עם החפיסה שלו.
           </p>
@@ -163,7 +164,7 @@ export const MissionCards = () => {
 
       <section className="bg-room text-paper">
         <div className="mx-auto flex max-w-[1440px] flex-col items-start gap-8 px-4 py-16 md:px-8 lg:flex-row lg:items-end lg:justify-between lg:px-14 lg:py-20">
-          <p className="max-w-[20ch] font-display text-[clamp(3.5rem,8vw,6.5rem)] font-bold leading-[0.85]">החפיסה המודפסת מגיעה במארז.</p>
+          <p className="max-w-[20ch] font-display text-[clamp(3.5rem,8vw,6.5rem)] font-bold leading-[0.85]"><E id="cards_print_title">החפיסה המודפסת מגיעה במארז.</E></p>
           <div className="flex flex-col items-start gap-3">
             <Ticket label="לבחור מארז" stub="03" stubCaption="מארזים" tone="spot" to="/experience" />
             <Link to="/boutique" className="text-sm font-bold underline underline-offset-4 hover:text-[var(--color-accent-light)]">

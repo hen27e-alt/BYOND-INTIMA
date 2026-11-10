@@ -98,6 +98,7 @@ type Draft = {
   image: string;
   isPremium: boolean;
   personalizable: boolean;
+  shippingIncluded: boolean;
   hidden: boolean;
   soldOut: boolean;
   features: string;
@@ -116,6 +117,7 @@ const toDraft = (p?: Product): Draft => ({
   image: p?.image ?? '',
   isPremium: !!p?.isPremium,
   personalizable: !!p?.personalizable,
+  shippingIncluded: !!p?.shippingIncluded,
   hidden: !!p?.hidden,
   soldOut: !!p?.soldOut,
   features: (p?.features ?? []).join('\n'),
@@ -193,6 +195,7 @@ const ProductEditor = ({
           image: d.image.trim(),
           isPremium: d.isPremium,
           personalizable: d.personalizable,
+          shippingIncluded: d.shippingIncluded,
           hidden: d.hidden,
           soldOut: d.soldOut,
           features: d.features.split('\n').map((s) => s.trim()).filter(Boolean),
@@ -227,7 +230,7 @@ const ProductEditor = ({
 
   return (
     <div className="fixed inset-0 z-[120] flex justify-end" role="dialog" aria-modal="true" aria-labelledby="editor-title">
-      <div className="absolute inset-0 bg-ink/60" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
       <div ref={dialogRef} className="relative flex h-full w-full max-w-xl flex-col border-s-[3px] border-ink bg-paper">
         <header className="flex items-center justify-between border-b-[3px] border-ink px-5 py-4">
           <h2 id="editor-title" className="font-display text-4xl font-bold leading-none">
@@ -297,6 +300,7 @@ const ProductEditor = ({
             <Check label="אזל מהמלאי (מוצג, אבל אי אפשר לקנות)" checked={d.soldOut} onChange={(v) => set('soldOut', v)} />
             <Check label="למנויים בלבד" checked={d.isPremium} onChange={(v) => set('isPremium', v)} />
             <Check label="אפשר חריטה והקדשה" checked={d.personalizable} onChange={(v) => set('personalizable', v)} />
+            <Check label="המשלוח כלול במחיר (לא מוסיף דמי משלוח)" checked={d.shippingIncluded} onChange={(v) => set('shippingIncluded', v)} />
           </fieldset>
 
           <details className="border-t-[3px] border-ink pt-3">
@@ -966,6 +970,9 @@ export const Admin = () => {
             </Link>
           </div>
         </header>
+        <p className="mt-5 border-s-2 border-gold ps-3 text-base text-ink/80">
+          <strong>עריכת טקסטים באתר:</strong> בכל דף באתר לוחצים על העיפרון בתפריט העליון, ואז על כל כותרת או פסקה שמסומנת בקו מקווקו. מוצרים, מחירים ותמונות נערכים כאן, והעונה והמנוי בלשונית שלהם.
+        </p>
 
         <nav aria-label="אזורי הניהול" className="mt-6 overflow-x-auto border-y-[3px] border-ink">
           <ul className="flex min-w-max">

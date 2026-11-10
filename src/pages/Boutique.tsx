@@ -1,3 +1,4 @@
+import { E } from '../components/EditableText';
 import { isBoxArt } from '../data/season';
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -107,12 +108,12 @@ export const Boutique = () => {
       <header className="border-b-[3px] border-ink">
         <div className="mx-auto flex max-w-[1440px] flex-col gap-6 px-4 py-10 md:px-8 lg:flex-row lg:items-end lg:justify-between lg:px-14 lg:py-14">
           <div>
-            <h1 className="font-display text-[clamp(5rem,16vw,11rem)] font-bold leading-[0.8]">{tx('הבוטיק', 'The boutique')}</h1>
+            <h1 className="font-display text-[clamp(5rem,16vw,11rem)] font-bold leading-[0.8]"><E id="bq_title">{tx('הבוטיק', 'The boutique')}</E></h1>
             <p className="mt-4 max-w-[52ch] text-lg leading-relaxed md:text-xl">
-              {tx(
+              <E id="bq_lede" multiline>{tx(
                 'החנות של Byond Intima: המארזים, מתנות, ודברים שמשלימים את הערב. מנויים מקבלים הנחה קבועה על כל פריט.',
                 'The Byond Intima shop: the boxes, gifts and things that complete the evening. Members get a standing discount on every item.'
-              )}
+              )}</E>
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -328,7 +329,7 @@ export const Boutique = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsCartOpen(false)}
-              className="fixed inset-0 z-[60] bg-ink/50"
+              className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm"
             />
             <motion.aside
               role="dialog"

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, createContext, useContext } from 'react';
-import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import React, { useState, useEffect, useSyncExternalStore, createContext, useContext } from 'react';
+import { collection, doc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -21,8 +21,15 @@ const EditModeContext = createContext<EditModeContextType>({
 export const EditModeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isEditMode, setIsEditMode] = useState(false);
   const { profile, user } = useFirebase();
-  
-  const isAdmin = profile?.role === 'admin' || profile?.email === 'hen27e@gmail.com' || user?.email === 'hen27e@gmail.com';
+
+  // Local development only: ?edit shows the editing UI without the admin account (saves are still refused by the rules).
+  const devEdit = import.meta.env.DEV && typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('edit');
+  const isAdmin = devEdit || profile?.role === 'admin' || profile?.email === 'hen27e@gmail.com' || user?.email === 'hen27e@gmail.com';
+
+  // Leaving the admin account always leaves edit mode.
+  useEffect(() => {
+    if (!isAdmin && isEditMode) setIsEditMode(false);
+  }, [isAdmin, isEditMode]);
 
   return (
     <EditModeContext.Provider value={{ isEditMode, setIsEditMode, isAdmin }}>
@@ -33,6 +40,45 @@ export const EditModeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
 export const useEditMode = () => useContext(EditModeContext);
 
+/* ------------------------------------------------------------------ */
+/* Site texts: one shared listener for the whole site_content          */
+/* collection, instead of one per text on the page.                    */
+/* ------------------------------------------------------------------ */
+
+type ContentDoc = Record<string, unknown>;
+let contentCache: Record<string, ContentDoc> = {};
+let unsubscribe: (() => void) | null = null;
+const listeners = new Set<() => void>();
+
+const subscribe = (cb: () => void) => {
+  listeners.add(cb);
+  if (!unsubscribe) {
+    unsubscribe = onSnapshot(
+      collection(db, 'site_content'),
+      (snap) => {
+        const next: Record<string, ContentDoc> = {};
+        snap.forEach((d) => {
+          next[d.id] = d.data();
+        });
+        contentCache = next;
+        listeners.forEach((l) => l());
+      },
+      (err) => console.error('Error loading site content:', err)
+    );
+  }
+  return () => {
+    listeners.delete(cb);
+  };
+};
+
+/** The saved text for a content id in the current language, or the default. */
+export const useSiteText = (contentId: string, defaultText: string) => {
+  const { language } = useLanguage();
+  const data = useSyncExternalStore(subscribe, () => contentCache[contentId]);
+  const saved = (data?.[`text_${language}`] ?? (language === 'he' ? data?.text : undefined)) as string | undefined;
+  return typeof saved === 'string' && saved.trim() ? saved : defaultText;
+};
+
 interface EditableTextProps {
   contentId: string;
   defaultText: string;
@@ -42,53 +88,40 @@ interface EditableTextProps {
   onClick?: (e: React.MouseEvent) => void;
 }
 
-export const EditableText: React.FC<EditableTextProps> = ({ 
-  contentId, 
-  defaultText, 
-  className = '', 
+export const EditableText: React.FC<EditableTextProps> = ({
+  contentId,
+  defaultText,
+  className = '',
   as: Component = 'span',
   multiline = false,
-  onClick
+  onClick,
 }) => {
   const { isEditMode, isAdmin } = useEditMode();
   const { language } = useLanguage();
   const { showAlert } = useAlert();
-  const [text, setText] = useState(defaultText);
+  const text = useSiteText(contentId, defaultText);
   const [isEditing, setIsEditing] = useState(false);
   const [tempText, setTempText] = useState(text);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, 'site_content', contentId), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        const langText = data[`text_${language}`] || data.text || defaultText;
-        setText(langText);
-        setTempText(langText);
-      } else {
-        setText(defaultText);
-        setTempText(defaultText);
-      }
-      setLoading(false);
-    }, (err) => {
-      console.error(`Error loading site content (${contentId}):`, err);
-      setLoading(false);
-    });
-
-    return () => unsub();
-  }, [contentId, language, defaultText]);
+    if (!isEditing) setTempText(text);
+  }, [text, isEditing]);
 
   const handleSave = async () => {
     if (!isAdmin) return;
     setSaving(true);
     try {
-      await setDoc(doc(db, 'site_content', contentId), {
-        contentId,
-        [`text_${language}`]: tempText,
-        updatedAt: serverTimestamp(),
-        updatedBy: auth.currentUser?.uid
-      }, { merge: true });
+      await setDoc(
+        doc(db, 'site_content', contentId),
+        {
+          contentId,
+          [`text_${language}`]: tempText.trim() ? tempText : defaultText,
+          updatedAt: serverTimestamp(),
+          updatedBy: auth.currentUser?.uid,
+        },
+        { merge: true }
+      );
       setIsEditing(false);
     } catch (error) {
       console.error('Error saving content:', error);
@@ -98,24 +131,25 @@ export const EditableText: React.FC<EditableTextProps> = ({
     }
   };
 
+  const handleReset = async () => {
+    setTempText(defaultText);
+  };
+
   const handleCancel = () => {
     setTempText(text);
     setIsEditing(false);
   };
 
-  if (loading) {
-    return <span className="animate-pulse opacity-50">{defaultText}</span>;
-  }
-
   if (isEditMode && isAdmin) {
     if (isEditing) {
       return (
-        <div className={`relative group inline-block w-full ${className}`}>
-          {multiline ? (
+        <div className="relative z-40 my-2 w-full border border-gold/60 bg-surface p-3 text-start text-base font-normal not-italic text-ink" style={{ zoom: 1 }}>
+          {multiline || text.length > 60 ? (
             <textarea
               value={tempText}
               onChange={(e) => setTempText(e.target.value)}
-              className="w-full p-2 bg-white border-2 border-brand-gold rounded-lg text-brand-black focus:outline-none min-h-[100px]"
+              rows={4}
+              className="w-full border border-rule bg-paper p-2 text-base leading-relaxed text-ink outline-none focus:border-gold"
               autoFocus
             />
           ) : (
@@ -123,46 +157,57 @@ export const EditableText: React.FC<EditableTextProps> = ({
               type="text"
               value={tempText}
               onChange={(e) => setTempText(e.target.value)}
-              className="w-full p-2 bg-white border-2 border-brand-gold rounded-lg text-brand-black focus:outline-none"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void handleSave();
+                if (e.key === 'Escape') handleCancel();
+              }}
+              className="w-full border border-rule bg-paper p-2 text-base text-ink outline-none focus:border-gold"
               autoFocus
             />
           )}
-          <div className="absolute -top-10 right-0 flex gap-2 bg-white p-1 rounded-lg shadow-lg border border-brand-gold/20 z-50">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="p-1.5 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
-              title="שמור"
-            >
-              {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm font-bold">
+            <button onClick={handleSave} disabled={saving} className="inline-flex items-center gap-1 bg-ink px-3 py-1.5 text-paper hover:bg-spot disabled:opacity-50">
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} לשמור
             </button>
-            <button
-              onClick={handleCancel}
-              disabled={saving}
-              className="p-1.5 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
-              title="ביטול"
-            >
-              <X size={16} />
+            <button onClick={handleCancel} disabled={saving} className="inline-flex items-center gap-1 border border-ink px-3 py-1.5 hover:text-spot">
+              <X size={14} /> ביטול
             </button>
+            {tempText !== defaultText && (
+              <button onClick={handleReset} disabled={saving} className="ms-auto underline underline-offset-4 hover:text-spot">
+                להחזיר לנוסח המקורי
+              </button>
+            )}
           </div>
         </div>
       );
     }
 
     return (
-      <div 
-        className={`relative group cursor-pointer border border-dashed border-brand-gold/30 hover:border-brand-gold p-1 rounded transition-all ${className}`}
-        onClick={() => setIsEditing(true)}
+      <Component
+        className={`${className} group/edit relative cursor-pointer outline outline-1 outline-dashed outline-offset-4 outline-gold/50 hover:outline-gold`}
+        onClick={(e: React.MouseEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsEditing(true);
+        }}
+        title="לחצו לעריכה"
       >
-        <Component>{text}</Component>
-        <div className="absolute -top-2 -right-2 bg-brand-gold text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
+        {text}
+        <span aria-hidden="true" className="pointer-events-none absolute -top-3 -end-3 bg-gold p-1 text-[#110E0D] opacity-0 transition-opacity group-hover/edit:opacity-100" style={{ zoom: 1 }}>
           <Edit2 size={10} />
-        </div>
-      </div>
+        </span>
+      </Component>
     );
   }
 
   return (
-    <Component className={className} onClick={onClick}>{text}</Component>
+    <Component className={className} onClick={onClick}>
+      {text}
+    </Component>
   );
 };
+
+/** Shorthand: the children are the default text. `<E id="home_title" as="h2">התוכנייה</E>` */
+export const E = ({ id, as = 'span', className, multiline, children }: { id: string; as?: EditableTextProps['as']; className?: string; multiline?: boolean; children: string }) => (
+  <EditableText contentId={id} defaultText={children} as={as} className={className} multiline={multiline} />
+);

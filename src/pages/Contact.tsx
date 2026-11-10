@@ -1,3 +1,4 @@
+import { E } from '../components/EditableText';
 import React, { useRef, useState } from 'react';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -75,13 +76,13 @@ export const Contact = () => {
     <div className="bg-paper pt-16 text-ink md:pt-20">
       <div className="mx-auto max-w-[1440px] px-4 pb-24 pt-12 md:px-8 lg:px-14 lg:pt-20">
         <header className="border-b-[3px] border-ink pb-8">
-          <h1 className="font-display text-[clamp(4.5rem,13vw,11rem)] font-bold leading-[0.8]">{tx('צרו קשר', 'Contact')}</h1>
+          <h1 className="font-display text-[clamp(4.5rem,13vw,11rem)] font-bold leading-[0.8]"><E id="contact_title">{tx('צרו קשר', 'Contact')}</E></h1>
         </header>
 
         <div className="grid gap-12 pt-10 lg:grid-cols-[minmax(0,4fr)_minmax(0,7fr)] lg:gap-20">
           <aside>
             <p className="text-xl leading-relaxed text-ink/85">
-              {tx('שאלה על הזמנה, על מארז או על המנוי? כתבו לנו ונחזור אליכם תוך יום עסקים.', 'A question about an order, a box or membership? Write to us and we will get back to you within one business day.')}
+              <E id="contact_lede" multiline>{tx('שאלה על הזמנה, על מארז או על המנוי? כתבו לנו ונחזור אליכם תוך יום עסקים.', 'A question about an order, a box or membership? Write to us and we will get back to you within one business day.')}</E>
             </p>
             <dl className="mt-8">
               <div className="border-t-[3px] border-ink py-4">

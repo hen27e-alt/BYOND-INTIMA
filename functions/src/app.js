@@ -98,7 +98,7 @@ export const createApp = ({ db, auth, baseUrl, dev = false }) => {
           price: (r.adminEdited || !base) && Number.isFinite(r.price) ? r.price : base?.price,
           hidden: !!r.hidden,
           soldOut: !!r.soldOut,
-          shippingIncluded: !!base?.shippingIncluded,
+          shippingIncluded: r.adminEdited && typeof r.shippingIncluded === 'boolean' ? r.shippingIncluded : !!base?.shippingIncluded,
         };
       }
     } catch (e) {

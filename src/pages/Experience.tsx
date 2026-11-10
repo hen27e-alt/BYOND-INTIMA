@@ -1,3 +1,4 @@
+import { E } from '../components/EditableText';
 import { CardsOnly } from '../components/season/CardsOnly';
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -79,12 +80,12 @@ export const Experience = () => {
     <div className="bg-paper pt-16 text-ink md:pt-20">
       <header className="mx-auto max-w-[1440px] px-4 pt-12 md:px-8 lg:px-14 lg:pt-20">
         <div className="grid gap-6 border-b-[3px] border-ink pb-8 lg:grid-cols-[1fr_minmax(0,460px)] lg:items-end">
-          <h1 className="font-display text-[clamp(4.5rem,13vw,11rem)] font-bold leading-[0.8]">{tx('המארזים', 'The boxes')}</h1>
+          <h1 className="font-display text-[clamp(4.5rem,13vw,11rem)] font-bold leading-[0.8]"><E id="exp_title">{tx('המארזים', 'The boxes')}</E></h1>
           <p className="text-lg leading-relaxed text-ink/80">
-            {tx(
+            <E id="exp_lede" multiline>{tx(
               'שלושה מארזים, שלושה אורכי ערב: משעה קלה של דמדומים ועד לילה שלם. כל מארז נשלח הביתה עם כל מה שצריך, ואפשר לקנות כל אחד בנפרד.',
               'Three boxes, three lengths of evening: from a light hour at dusk to a whole night. Each one ships home with everything you need, and each can be bought on its own.'
-            )}
+            )}</E>
           </p>
         </div>
         <nav aria-label={tx('קפיצה למארז', 'Jump to a box')} className="flex flex-wrap gap-x-8 gap-y-2 border-b border-ink py-4 text-base font-bold">
@@ -183,7 +184,7 @@ export const Experience = () => {
 
       <section id="compare" className="scroll-mt-24 bg-paper">
         <div className="mx-auto max-w-[1440px] px-4 py-16 md:px-8 lg:px-14 lg:py-24">
-          <h2 className="border-b-[3px] border-ink pb-3 font-display text-6xl font-bold leading-none md:text-7xl">{tx('זה מול זה', 'Side by side')}</h2>
+          <h2 className="border-b-[3px] border-ink pb-3 font-display text-6xl font-bold leading-none md:text-7xl"><E id="exp_compare_title">{tx('זה מול זה', 'Side by side')}</E></h2>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px] border-collapse text-start text-base">
               <thead>
@@ -221,12 +222,12 @@ export const Experience = () => {
       <section className="bg-room text-paper">
         <div className="mx-auto flex max-w-[1440px] flex-col items-start gap-8 px-4 py-16 md:px-8 lg:flex-row lg:items-end lg:justify-between lg:px-14 lg:py-24">
           <div className="max-w-[46ch]">
-            <h2 className="font-display text-6xl font-bold leading-[0.85] md:text-7xl">{tx('או את כל העונה', 'Or the whole season')}</h2>
+            <h2 className="font-display text-6xl font-bold leading-[0.85] md:text-7xl"><E id="exp_season_title">{tx('או את כל העונה', 'Or the whole season')}</E></h2>
             <p className="mt-4 text-lg leading-relaxed text-paper/80">
-              {tx(
+              <E id="exp_season_lede" multiline>{tx(
                 'מנויים מקבלים את התוכנייה של העונה, ערבים מוכנים מראש והנחה קבועה על כל מארז ועל הבוטיק.',
                 "Members get the season's programme, evenings planned ahead, and a standing discount on every box and on the boutique."
-              )}
+              )}</E>
             </p>
           </div>
           <div className="flex flex-col items-start gap-3">

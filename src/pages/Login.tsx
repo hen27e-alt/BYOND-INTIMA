@@ -1,3 +1,4 @@
+import { E } from '../components/EditableText';
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useFirebase } from '../contexts/FirebaseContext';
@@ -89,12 +90,12 @@ export const Login = () => {
       {/* The room: what waits on the other side of the door */}
       <aside className="flex flex-col justify-end bg-room px-4 py-12 text-paper md:px-8 lg:px-14 lg:py-20">
         <p className="font-display text-[clamp(7rem,20vw,15rem)] font-bold leading-[0.75] text-spot">{pad(seasonNumber)}</p>
-        <h2 className="mt-4 font-display text-5xl font-bold leading-[0.9] md:text-6xl">{tx('המקום שלכם', 'Your place')}</h2>
+        <h2 className="mt-4 font-display text-5xl font-bold leading-[0.9] md:text-6xl"><E id="login_title">{tx('המקום שלכם', 'Your place')}</E></h2>
         <p className="mt-4 max-w-[40ch] text-lg leading-relaxed text-paper/75">
-          {tx(
+          <E id="login_lede" multiline>{tx(
             'הערבים של העונה, היומן הזוגי, ההזמנות והמשחקים. הכול שמור כאן, רק לשניכם.',
             "The season's evenings, your shared journal, your orders and games. All kept here, just for the two of you."
-          )}
+          )}</E>
         </p>
       </aside>
 

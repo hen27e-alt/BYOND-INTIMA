@@ -116,7 +116,7 @@ export const Footer = () => {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
               onClick={() => setIsDisclaimerOpen(false)}
-              className="absolute inset-0 bg-ink/70"
+              className="absolute inset-0 bg-black/75 backdrop-blur-sm"
             />
             <motion.div
               initial={{ opacity: 0, y: 12 }}

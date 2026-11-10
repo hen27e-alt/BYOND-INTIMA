@@ -1,3 +1,4 @@
+import { E } from '../components/EditableText';
 import { CardsOnly } from '../components/season/CardsOnly';
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -115,17 +116,17 @@ export const Home = () => {
       <section aria-labelledby="night-title">
         <DarkRoom evenings={season.evenings}>
           <div className="mx-auto flex min-h-[calc(100svh-5rem)] max-w-[1440px] flex-col justify-end px-4 pb-20 pt-16 md:px-8 lg:px-14 lg:pb-24">
-            <p className="text-base font-bold text-spot">עונה {pad(season.seasonNumber)} · מהדמדומים עד אור הבוקר</p>
+            <p className="text-base font-bold text-spot">עונה {pad(season.seasonNumber)} · <E id="home_hero_kicker">מהדמדומים עד אור הבוקר</E></p>
             <h1 id="night-title" className="mt-3 max-w-[11ch] font-display text-[clamp(4.5rem,12vw,10.5rem)] font-bold leading-[0.8]">
-              הלילה הזה <span className="text-spot">שלכם.</span>
+              <E id="home_hero_title_a">הלילה הזה</E> <E id="home_hero_title_b" className="text-spot">שלכם.</E>
             </h1>
-            <p className="mt-6 max-w-[38ch] text-xl leading-relaxed text-ink/80 md:text-2xl">
+            <E id="home_hero_lede" as="p" multiline className="mt-6 block max-w-[38ch] text-xl leading-relaxed text-ink/80 md:text-2xl">
               עונה של ערבים זוגיים מודרכים. מארזים שנפתחים כשהאור יורד, משימות שלא מספרים לאף אחד, ומקום באתר שרק שניכם נכנסים אליו.
-            </p>
+            </E>
             <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-4">
               <Ticket label="להצטרף למנוי" stub={pad(season.seasonNumber)} stubCaption="עונה" to={joinTo} tone="spot" />
               <a href="#night" className="text-base font-bold underline decoration-2 underline-offset-4 hover:text-spot">
-                או לבחור לילה אחד
+                <E id="home_hero_secondary">או לבחור לילה אחד</E>
               </a>
             </div>
           </div>
@@ -137,9 +138,9 @@ export const Home = () => {
         <div className="mx-auto grid max-w-[1440px] gap-10 px-4 py-20 md:px-8 lg:grid-cols-[minmax(0,460px)_1fr] lg:gap-16 lg:px-14 lg:py-28">
           <div>
             <h2 id="prog-title" className="font-display text-[clamp(3.5rem,8vw,6.5rem)] font-bold leading-[0.85]">
-              התוכנייה
+              <E id="home_prog_title">התוכנייה</E>
             </h2>
-            <p className="mt-5 max-w-[34ch] text-lg leading-relaxed text-ink/75">שישה ערבים בעונה. כל ערב נפתח במעטפה סגורה, ואת ההמשך אתם כותבים.</p>
+            <E id="home_prog_lede" as="p" multiline className="mt-5 block max-w-[34ch] text-lg leading-relaxed text-ink/75">שישה ערבים בעונה. כל ערב נפתח במעטפה סגורה, ואת ההמשך אתם כותבים.</E>
           </div>
           <ol className="border-t-[3px] border-ink">
             {season.evenings.map((ev, i) => (
@@ -168,11 +169,11 @@ export const Home = () => {
         <div className="relative mx-auto max-w-[1440px] px-4 py-24 md:px-8 lg:px-14 lg:py-32">
           <div className="flex flex-wrap items-end justify-between gap-6">
             <h2 id="boxes-title" className="font-display text-[clamp(3.5rem,9vw,7.5rem)] font-bold leading-[0.82]">
-              לילה אחד,
+              <E id="home_boxes_title_a">לילה אחד,</E>
               <br />
-              שלוש שעות.
+              <E id="home_boxes_title_b">שלוש שעות.</E>
             </h2>
-            <p className="max-w-[38ch] text-lg leading-relaxed text-[#EFE6D8]/75">כל מארז מתחיל בשעה אחרת של הלילה. ככל שמאוחר יותר, הוא עמוק יותר. אפשר לקנות כל אחד בנפרד, ומנויים מקבלים עליהם הנחה.</p>
+            <E id="home_boxes_lede" as="p" multiline className="max-w-[38ch] text-lg leading-relaxed text-[#EFE6D8]/75">כל מארז מתחיל בשעה אחרת של הלילה. ככל שמאוחר יותר, הוא עמוק יותר. אפשר לקנות כל אחד בנפרד, ומנויים מקבלים עליהם הנחה.</E>
           </div>
 
           <ol className="mt-16 space-y-24 md:space-y-32">
@@ -235,7 +236,7 @@ export const Home = () => {
           <div>
             <p className="text-sheen text-sm font-bold">המנוי</p>
             <h2 id="mem-title" className="mt-2 font-display text-[clamp(3.5rem,8vw,6.5rem)] font-bold leading-[0.85]">
-              העונה כולה, אצלכם
+              <E id="home_mem_title">העונה כולה, אצלכם</E>
             </h2>
           </div>
           <dl className="rule-sheen border-t">
@@ -245,8 +246,10 @@ export const Home = () => {
               ['המקום שלכם', 'אזור פרטי באתר עם היומן, המשימות, המשחקים וקלפי המשימה. שם העונה ממשיכה בין משלוח למשלוח.'],
             ].map(([t, d], i) => (
               <motion.div key={t} {...fadeUp(i)} className="grid gap-2 rule-sheen border-b py-7 md:grid-cols-[220px_1fr] md:gap-8">
-                <dt className="font-display text-4xl font-bold leading-none md:text-5xl">{t}</dt>
-                <dd className="max-w-[56ch] text-lg leading-relaxed text-ink/80">{d}</dd>
+                <dt className="font-display text-4xl font-bold leading-none md:text-5xl">
+                  <E id={`home_mem_${i}_title`}>{t}</E>
+                </dt>
+                <dd className="max-w-[56ch] text-lg leading-relaxed text-ink/80">{i === 1 ? d : <E id={`home_mem_${i}_text`} multiline>{d}</E>}</dd>
               </motion.div>
             ))}
             <div className="pt-8">
@@ -261,9 +264,9 @@ export const Home = () => {
         <div className="mx-auto grid max-w-[1440px] gap-10 px-4 py-24 md:px-8 lg:grid-cols-[minmax(0,460px)_1fr] lg:gap-16 lg:px-14 lg:py-28">
           <div>
             <h2 id="bq-title" className="font-display text-[clamp(3.5rem,8vw,6.5rem)] font-bold leading-[0.85]">
-              בהפסקה: הבוטיק
+              <E id="home_bq_title">בהפסקה: הבוטיק</E>
             </h2>
-            <p className="mt-5 max-w-[34ch] text-lg leading-relaxed text-ink/75">דברים שמשלימים את הערב: אווירה, אירוח, מתנות וחריטה אישית.</p>
+            <E id="home_bq_lede" as="p" multiline className="mt-5 block max-w-[34ch] text-lg leading-relaxed text-ink/75">דברים שמשלימים את הערב: אווירה, אירוח, מתנות וחריטה אישית.</E>
             <Link to="/boutique" className="mt-8 inline-block border-2 border-ink px-6 py-3 text-lg font-bold hover:border-transparent hover:fill-spot">
               לבוטיק
             </Link>
@@ -288,7 +291,7 @@ export const Home = () => {
       <section className="glow-oxblood rule-ember border-t">
         <div className="mx-auto flex max-w-[1440px] flex-col items-start gap-8 px-4 py-24 md:px-8 lg:flex-row lg:items-end lg:justify-between lg:px-14 lg:py-32">
           <h2 className="max-w-[12ch] font-display text-[clamp(3.5rem,9vw,7.5rem)] font-bold leading-[0.82]">
-            מכבים את האור. <span className="text-spot">מתחילים.</span>
+            <E id="home_close_a">מכבים את האור.</E> <E id="home_close_b" className="text-spot">מתחילים.</E>
           </h2>
           <Ticket label={user ? 'למקום שלכם' : 'להצטרף למנוי'} stub={pad(season.seasonNumber)} stubCaption="עונה" to={joinTo} tone="spot" className="w-full max-w-md" />
         </div>
