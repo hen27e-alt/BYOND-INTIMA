@@ -16,6 +16,7 @@ import { type Product, memberPriceFor, useCatalogue, useSeasonSettings, visible 
 const CATEGORIES = [
   { id: 'all', he: 'הכל', en: 'All' },
   { id: 'experience', he: 'מארזים', en: 'Boxes' },
+  { id: 'cards', he: 'קלפים בלבד', en: 'Cards only' },
   { id: 'gifts', he: 'מתנות', en: 'Gifts' },
   { id: 'atmosphere', he: 'אווירה', en: 'Atmosphere' },
   { id: 'lifestyle', he: 'אירוח ולייף סטייל', en: 'Hosting & lifestyle' },
@@ -187,6 +188,7 @@ export const Boutique = () => {
                     )}
                     <div className="absolute start-0 top-0 flex gap-1">
                       {product.category === 'experience' && <span className="bg-spot px-2 py-1 text-xs font-bold text-paper">{tx('מארז', 'Box')}</span>}
+                      {product.shippingIncluded && <span className="bg-[#0B0909]/80 px-2 py-1 text-xs font-bold text-gold">{tx('משלוח כלול', 'Shipping included')}</span>}
                       {product.isPremium && <span className="bg-ink px-2 py-1 text-xs font-bold text-paper">{tx('למנויים', 'Members')}</span>}
                       {product.soldOut && <span className="bg-paper px-2 py-1 text-xs font-bold text-ink">{tx('אזל', 'Sold out')}</span>}
                     </div>

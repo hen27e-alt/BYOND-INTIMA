@@ -22,11 +22,25 @@ export type Product = (typeof boutiqueProducts)[number] &
 
 export const CATEGORY_LABELS: Record<string, string> = {
   experience: 'מארזים',
+  cards: 'קלפים בלבד',
   atmosphere: 'אווירה',
   lifestyle: 'אירוח ולייף סטייל',
   bedroom: 'חדר שינה',
   personalization: 'בהתאמה אישית',
   smart: 'מוצרים חכמים',
+};
+
+/** Cards-only pack for a box: same missions, no accessories, shipping included. */
+export const CARDS_FOR: Record<string, string> = { exp_spark: 'cards_dusk', exp_velvet: 'cards_midnight', exp_ecstasy: 'cards_dawn' };
+export const CARDS_PRICE = 99;
+
+/** Shipping rule shared by the cart and checkout. Items that include shipping never trigger the fee. */
+export const FREE_SHIPPING_FROM = 300;
+export const SHIPPING_FEE = 25;
+export const shippingFor = (lines: { price: number; quantity: number; shippingIncluded?: boolean }[]) => {
+  const subtotal = lines.reduce((s, l) => s + l.price * l.quantity, 0);
+  const needsShipping = lines.some((l) => !l.shippingIncluded);
+  return !needsShipping || subtotal >= FREE_SHIPPING_FROM ? 0 : SHIPPING_FEE;
 };
 
 export const isUnsplash = (src?: string) => !!src && src.includes('images.unsplash.com');

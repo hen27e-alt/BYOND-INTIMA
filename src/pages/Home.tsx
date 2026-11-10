@@ -1,3 +1,4 @@
+import { CardsOnly } from '../components/season/CardsOnly';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react';
@@ -217,6 +218,9 @@ export const Home = () => {
                     <Link to="/experience" className="text-sm font-bold underline underline-offset-4 hover:text-spot">
                       מה יש בפנים
                     </Link>
+                  </div>
+                  <div className="mt-6">
+                    <CardsOnly boxId={box.id} products={shown} />
                   </div>
                 </div>
               </motion.li>

@@ -5,8 +5,8 @@ import { writeFileSync } from 'node:fs';
 import { boutiqueProducts } from '../src/data/boutique';
 import { cardDecks } from '../src/data/decks';
 
-const items: Record<string, { name: string; price: number; kind: 'boutique' | 'deck' }> = {};
-for (const p of boutiqueProducts) items[p.id] = { name: p.name, price: p.price, kind: 'boutique' };
+const items: Record<string, { name: string; price: number; kind: 'boutique' | 'deck'; shippingIncluded?: boolean }> = {};
+for (const p of boutiqueProducts) items[p.id] = { name: p.name, price: p.price, kind: 'boutique', ...('shippingIncluded' in p && p.shippingIncluded ? { shippingIncluded: true } : {}) };
 for (const d of cardDecks) items[d.id] = { name: `BYOND ${d.name}`, price: d.price ?? 119, kind: 'deck' };
 
 writeFileSync(new URL('../functions/catalogue.json', import.meta.url), JSON.stringify(items, null, 2) + '\n');

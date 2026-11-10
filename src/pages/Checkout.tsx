@@ -7,15 +7,13 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useAlert } from '../components/AlertModal';
 import { Ticket } from '../components/season/Ticket';
 import { cardDecks } from '../data/decks';
-import { type Product, useCatalogue } from '../lib/catalogue';
+import { type Product, useCatalogue, shippingFor, FREE_SHIPPING_FROM, SHIPPING_FEE } from '../lib/catalogue';
 import { cn } from '../lib/utils';
 
-const FREE_SHIPPING_FROM = 300;
-const SHIPPING_FEE = 25;
 
 type Field = 'firstName' | 'lastName' | 'email' | 'phone' | 'city' | 'address' | 'notes';
 
-const getProduct = (catalogue: Product[], id: string): { name: string; price: number; image?: string } | null => {
+const getProduct = (catalogue: Product[], id: string): { name: string; price: number; image?: string; shippingIncluded?: boolean } | null => {
   const boutique = catalogue.find((p) => p.id === id && !p.hidden);
   if (boutique) return boutique;
   const deck = cardDecks.find((d) => d.id === id);
@@ -68,7 +66,7 @@ export const Checkout = () => {
     .filter((l): l is { id: string; quantity: number; product: NonNullable<ReturnType<typeof getProduct>> } => Boolean(l.product));
 
   const subtotal = lines.reduce((s, l) => s + l.product.price * l.quantity, 0);
-  const shipping = subtotal >= FREE_SHIPPING_FROM ? 0 : SHIPPING_FEE;
+  const shipping = shippingFor(lines.map((l) => ({ price: l.product.price, quantity: l.quantity, shippingIncluded: l.product.shippingIncluded })));
   const total = subtotal + shipping;
 
   const setField = (name: Field, value: string) => {
@@ -223,7 +221,7 @@ export const Checkout = () => {
                 <div className="md:col-span-2">{input('notes', tx('הערות לשליח (לא חובה)', 'Notes for the courier (optional)'), { placeholder: tx('קומה, כניסה, קוד לבניין', 'Floor, entrance, door code') })}</div>
               </div>
               <p className="mt-4 text-sm text-ink/70">
-                {tx(`משלוח ₪${SHIPPING_FEE}, חינם בהזמנה מ־₪${FREE_SHIPPING_FROM}.`, `Shipping ₪${SHIPPING_FEE}, free on orders from ₪${FREE_SHIPPING_FROM}.`)}
+                {tx(`משלוח ₪${SHIPPING_FEE}, חינם בהזמנה מ־₪${FREE_SHIPPING_FROM}. בחפיסות הקלפים המשלוח כלול.`, `Shipping ₪${SHIPPING_FEE}, free on orders from ₪${FREE_SHIPPING_FROM}. Card packs ship free.`)}
               </p>
             </Part>
 

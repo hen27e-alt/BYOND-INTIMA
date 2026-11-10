@@ -1,3 +1,4 @@
+import { CardsOnly } from '../components/season/CardsOnly';
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'motion/react';
@@ -169,6 +170,9 @@ export const Experience = () => {
                         {tx('למנויים', 'Members')}: <strong className="text-spot">₪{memberPriceFor(box.price, discount)}</strong>
                       </p>
                     )}
+                    <div className="basis-full">
+                      <CardsOnly boxId={box.id} products={products.filter(visible)} he={he} />
+                    </div>
                   </div>
                 </div>
               </div>

@@ -94,6 +94,24 @@
     "price": 550,
     "kind": "boutique"
   },
+  "cards_dusk": {
+    "name": "קלפי דמדומים",
+    "price": 99,
+    "kind": "boutique",
+    "shippingIncluded": true
+  },
+  "cards_midnight": {
+    "name": "קלפי חצות",
+    "price": 99,
+    "kind": "boutique",
+    "shippingIncluded": true
+  },
+  "cards_dawn": {
+    "name": "קלפי עד אור הבוקר",
+    "price": 99,
+    "kind": "boutique",
+    "shippingIncluded": true
+  },
   "exp_spark": {
     "name": "מארז דמדומים",
     "price": 290,

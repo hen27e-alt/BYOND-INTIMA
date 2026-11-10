@@ -243,6 +243,45 @@ export const boutiqueProducts = [
     isPremium: true
   },
   {
+    id: 'cards_dusk',
+    name: 'קלפי דמדומים',
+    description: 'חפיסת קלפי המשימה של מארז דמדומים, בלי האביזרים. לערב שלם של משימות, רק אתם והקלפים. המשלוח כלול במחיר.',
+    image: '/boxes/cards-dusk.svg',
+    price: 99,
+    category: 'cards',
+    isPremium: false,
+    shippingIncluded: true,
+    cardsOf: 'exp_spark',
+    features: ['קלפי המשימה של דמדומים', 'קופסת קלפים בהטבעה', 'בלי אביזרים', 'משלוח עד הבית כלול'],
+    reviews: { rating: 5.0, count: 0 }
+  },
+  {
+    id: 'cards_midnight',
+    name: 'קלפי חצות',
+    description: 'חפיסת קלפי המשימה של מארז חצות, בלי האביזרים. לערב שלם של משימות, רק אתם והקלפים. המשלוח כלול במחיר.',
+    image: '/boxes/cards-midnight.svg',
+    price: 99,
+    category: 'cards',
+    isPremium: false,
+    shippingIncluded: true,
+    cardsOf: 'exp_velvet',
+    features: ['קלפי המשימה של חצות', 'קופסת קלפים בהטבעה', 'בלי אביזרים', 'משלוח עד הבית כלול'],
+    reviews: { rating: 5.0, count: 0 }
+  },
+  {
+    id: 'cards_dawn',
+    name: 'קלפי עד אור הבוקר',
+    description: 'חפיסת קלפי המשימה של מארז עד אור הבוקר, בלי האביזרים. לערב שלם של משימות, רק אתם והקלפים. המשלוח כלול במחיר.',
+    image: '/boxes/cards-dawn.svg',
+    price: 99,
+    category: 'cards',
+    isPremium: false,
+    shippingIncluded: true,
+    cardsOf: 'exp_ecstasy',
+    features: ['קלפי המשימה של עד אור הבוקר', 'קופסת קלפים בהטבעה', 'בלי אביזרים', 'משלוח עד הבית כלול'],
+    reviews: { rating: 5.0, count: 0 }
+  },
+  {
     id: 'exp_spark',
     name: 'מארז דמדומים',
     description: 'הציתו מחדש את הסקרנות וההתרגשות הראשונית. מארז קליל ומפתיע הכולל קלפי משחק, נר אווירה ופינוקים קטנים.',

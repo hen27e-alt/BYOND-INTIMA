@@ -98,6 +98,7 @@ export const createApp = ({ db, auth, baseUrl, dev = false }) => {
           price: (r.adminEdited || !base) && Number.isFinite(r.price) ? r.price : base?.price,
           hidden: !!r.hidden,
           soldOut: !!r.soldOut,
+          shippingIncluded: !!base?.shippingIncluded,
         };
       }
     } catch (e) {
@@ -135,10 +136,12 @@ export const createApp = ({ db, auth, baseUrl, dev = false }) => {
         const pers = it.personalization && (it.personalization.name || it.personalization.dedication)
           ? { name: str(it.personalization.name, 24), dedication: str(it.personalization.dedication, 80) }
           : null;
-        items.push({ id: str(it.id, 80), name: p.name, price: p.price, quantity, personalization: pers });
+        items.push({ id: str(it.id, 80), name: p.name, price: p.price, quantity, personalization: pers, shippingIncluded: !!p.shippingIncluded });
       }
       const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
-      const shipping = subtotal >= FREE_SHIPPING_FROM ? 0 : SHIPPING_FEE;
+      // Card packs include shipping; the fee applies only when something else needs it.
+      const needsShipping = items.some((i) => !i.shippingIncluded);
+      const shipping = !needsShipping || subtotal >= FREE_SHIPPING_FROM ? 0 : SHIPPING_FEE;
       const total = subtotal + shipping;
 
       const s = paymentMethod === 'credit-card' ? getStripe() : null;
