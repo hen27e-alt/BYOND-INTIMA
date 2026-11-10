@@ -20,6 +20,11 @@ const authMessage = (code: string | undefined, he: boolean) => {
     'auth/popup-blocked': ['הדפדפן חסם את חלון ההתחברות. אפשרו חלונות קופצים ונסו שוב.', 'The browser blocked the sign-in window. Allow pop-ups and try again.'],
     'auth/popup-closed-by-user': ['חלון ההתחברות נסגר לפני שהסתיים.', 'The sign-in window was closed before finishing.'],
     'auth/unauthorized-domain': ['הכתובת הזו עוד לא מורשית להתחברות. צריך להוסיף אותה ב־Firebase.', 'This address is not yet allowed to sign in. It needs to be added in Firebase.'],
+    'auth/operation-not-allowed': ['הכניסה עם Google עוד לא הופעלה באתר. אפשר להיכנס עם אימייל בינתיים.', 'Google sign-in is not enabled on this site yet. You can use email for now.'],
+    'auth/cancelled-popup-request': ['כבר פתוח חלון התחברות. סיימו בו או סגרו אותו ונסו שוב.', 'A sign-in window is already open. Finish there or close it and try again.'],
+    'auth/internal-error': ['משהו השתבש בהתחברות עם Google. נסו שוב בעוד רגע.', 'Something went wrong signing in with Google. Try again in a moment.'],
+    'auth/web-storage-unsupported': ['הדפדפן חוסם אחסון שההתחברות צריכה. נסו מחוץ למצב גלישה פרטית.', 'Your browser blocks storage that sign-in needs. Try outside private browsing.'],
+    'auth/account-exists-with-different-credential': ['כבר יש חשבון עם האימייל הזה. היכנסו עם אימייל וסיסמה.', 'An account with this email already exists. Sign in with email and password.'],
     'auth/network-request-failed': ['אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב.', 'No connection. Check your internet and try again.'],
   };
   const hit = code ? m[code] : undefined;
@@ -33,7 +38,7 @@ const passwordProblem = (p: string, he: boolean) => {
 };
 
 export const Login = () => {
-  const { signIn, signInEmail, signUpEmail } = useFirebase();
+  const { signIn, signInEmail, signUpEmail, redirectError } = useFirebase();
   const { language } = useLanguage();
   const { seasonNumber } = useSeasonSettings();
   const navigate = useNavigate();
@@ -47,6 +52,10 @@ export const Login = () => {
   const [error, setError] = useState<string | null>(null);
   const [pwError, setPwError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  React.useEffect(() => {
+    if (redirectError) setError(authMessage(redirectError, he));
+  }, [redirectError, he]);
 
   const done = () => navigate('/dashboard', { replace: true });
 

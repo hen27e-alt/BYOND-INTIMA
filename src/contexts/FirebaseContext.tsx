@@ -4,6 +4,8 @@ import {
   onAuthStateChanged, 
   User as FirebaseUser, 
   signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider, 
   OAuthProvider,
   signOut,
@@ -70,6 +72,8 @@ interface FirebaseContextType {
   user: FirebaseUser | null;
   profile: UserProfile | null;
   loading: boolean;
+  /** Error code left by a Google sign-in that went through a full-page redirect. */
+  redirectError: string | null;
   signIn: () => Promise<void>;
   signInApple: () => Promise<void>;
   signInEmail: (email: string, pass: string) => Promise<void>;
@@ -88,6 +92,7 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [mockUser, setMockUser] = useState<any>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [redirectError, setRedirectError] = useState<string | null>(null);
 
   const user = firebaseUser || mockUser;
 
@@ -102,6 +107,12 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         localStorage.removeItem('beyond_guest_user');
       }
     }
+
+    // Coming back from Google after a redirect sign-in: surface a failure instead of silently landing signed out.
+    getRedirectResult(auth).catch((err) => {
+      console.error('Google redirect sign-in error:', err);
+      setRedirectError((err as { code?: string })?.code ?? 'auth/internal-error');
+    });
 
     // Set persistence to local to ensure session survives refreshes
     setPersistence(auth, browserLocalPersistence).catch(err => console.error("Persistence error:", err));
@@ -223,9 +234,25 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
   }, []);
 
+  /**
+   * Google sign-in. A popup keeps the visitor on the page; when the browser blocks popups
+   * (or the environment cannot open one) it falls back to a full-page redirect to Google.
+   */
   const signIn = async () => {
-    // Disabled as per user request
-    throw new Error('התחברות עם Google הופסקה זמנית.');
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    setRedirectError(null);
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      const code = (error as { code?: string })?.code;
+      if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-environment') {
+        await signInWithRedirect(auth, provider);
+        return;
+      }
+      console.error('Google sign in error:', error);
+      throw error;
+    }
   };
 
   const signInApple = async () => {
@@ -367,6 +394,7 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     user, 
     profile, 
     loading, 
+    redirectError,
     signIn, 
     signInApple,
     signInEmail, 
@@ -376,7 +404,7 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     updateProfile,
     refreshProfile,
     connectPartner
-  }), [user, profile, loading]);
+  }), [user, profile, loading, redirectError]);
 
   return (
     <FirebaseContext.Provider value={contextValue}>
