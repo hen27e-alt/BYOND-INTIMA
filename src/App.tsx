@@ -58,6 +58,8 @@ const Updates = React.lazy(() => import('./pages/Updates'));
 const Legal = React.lazy(() => import('./pages/Legal'));
 const AIConsultant = React.lazy(() => import('./pages/AIConsultant'));
 const Together = React.lazy(() => import('./pages/Together').then(module => ({ default: module.Together })));
+const Evening = React.lazy(() => import('./pages/Evening'));
+const Faq = React.lazy(() => import('./pages/Faq'));
 const Sitemap = React.lazy(() => import('./pages/Sitemap').then(module => ({ default: module.Sitemap })));
 const SpaceObservatory = React.lazy(() => import('./pages/SpaceObservatory').then(module => ({ default: module.SpaceObservatory })));
 
@@ -89,6 +91,7 @@ const PageTitleUpdater = () => {
       case '/profile': pageName = t('nav.profile'); break;
       case '/about': pageName = he ? 'עלינו' : 'About'; break;
       case '/updates': pageName = t('nav.updates'); break;
+      case '/faq': pageName = he ? 'שאלות ותשובות' : 'FAQ'; break;
       case '/legal': pageName = he ? 'תקנון ומדיניות' : 'Terms & policies'; break;
       case '/admin': pageName = he ? 'פאנל ניהול' : 'Admin'; break;
       case '/admin/tools': pageName = he ? 'כלי ניהול' : 'Admin tools'; break;
@@ -231,6 +234,9 @@ const AppContent = () => {
             <Route path="/concierge" element={<AIConsultant />} />
             <Route path="/observatory" element={<SpaceObservatory />} />
             <Route path="/sitemap" element={<Sitemap />} />
+            <Route path="/faq" element={<Faq />} />
+            <Route path="/evening" element={<Evening />} />
+            <Route path="/evening/:suit" element={<Evening />} />
           </Routes>
         </Suspense>
       </Layout>

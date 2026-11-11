@@ -42,6 +42,7 @@ export const Footer = () => {
       links: [
         { to: '/about', label: tx('עלינו', 'About') },
         { to: '/contact', label: tx('צרו קשר', 'Contact') },
+        { to: '/faq', label: tx('שאלות ותשובות', 'FAQ') },
         { to: '/orders', label: tx('ההזמנות שלי', 'My orders') },
         { to: '/legal', label: tx('תקנון ותנאי שימוש', 'Terms') },
       ],

@@ -198,6 +198,7 @@ export const Home = () => {
               <E id="home_boxes_title_b">שלוש שעות.</E>
             </h2>
             <E id="home_boxes_lede" as="p" multiline className="max-w-[38ch] text-lg leading-relaxed text-[#EFE6D8]/75">כל מארז מתחיל בשעה אחרת של הלילה. ככל שמאוחר יותר, הוא עמוק יותר. אפשר לקנות כל אחד בנפרד, ומנויים מקבלים עליהם הנחה.</E>
+            <Link to="/experience#quiz" className="mt-4 inline-block text-base font-bold text-gold underline underline-offset-4 hover:text-spot">לא בטוחים איזה? ארבע שאלות</Link>
           </div>
 
           <ol className="mt-16 space-y-24 md:space-y-32">

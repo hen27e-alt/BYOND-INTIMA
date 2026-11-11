@@ -73,6 +73,16 @@ export const MissionCards = () => {
           <p className="text-lg leading-relaxed text-ink/80">
             {MISSION_CARDS.length} משימות לערב, בשלוש חפיסות לפי שעות הלילה. שולפים קלף, עושים מה שכתוב, ומעבירים את התור. כל מארז מגיע עם החפיסה שלו.
           </p>
+          <Link
+            to={suit === 'all' ? '/evening' : `/evening/${suit}`}
+            className="glow-oxblood inline-flex min-h-12 items-center justify-between gap-4 border border-gold/50 px-5 text-base font-bold hover:border-gold lg:col-start-2"
+          >
+            <span>
+              <span className="text-gold">מצב ערב</span>
+              <span className="ms-2 font-normal text-ink/70">קלף אחרי קלף, מסך מלא, בלי הסחות</span>
+            </span>
+            <span aria-hidden="true">←</span>
+          </Link>
         </div>
         <div role="group" aria-label="בחירת חפיסה" className="flex flex-wrap gap-x-1 gap-y-2 border-b border-ink py-3">
           {(['all', 'dusk', 'midnight', 'dawn'] as const).map((s) => (

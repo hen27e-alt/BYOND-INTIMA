@@ -1,3 +1,4 @@
+import { BoxQuiz } from '../components/season/BoxQuiz';
 import { Unboxing } from '../components/season/Unboxing';
 import { E } from '../components/EditableText';
 import { CardsOnly } from '../components/season/CardsOnly';
@@ -98,8 +99,14 @@ export const Experience = () => {
           <a href="#compare" className="hover:text-spot">
             {tx('השוואה', 'Compare')}
           </a>
+          {he && (
+            <a href="#quiz" className="text-gold hover:text-spot">
+              לא בטוחים איזה?
+            </a>
+          )}
         </nav>
       </header>
+      {he && <BoxQuiz products={products.filter(visible)} />}
 
       <ol className="mx-auto max-w-[1440px] px-4 md:px-8 lg:px-14">
         {boxes.map((box, i) => {

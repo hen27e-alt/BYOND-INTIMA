@@ -1,3 +1,4 @@
+import { SeasonPath } from '../season/SeasonPath';
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -104,6 +105,7 @@ const Overview = ({ profile, updateProfile, setActiveTab }: Pick<Props, 'profile
               {done.length}/{evenings.length} ערבים
             </span>
           </h2>
+          <SeasonPath evenings={evenings} done={done} nextN={next?.n} />
           <ol>
             {evenings.map((ev) => {
               const isDone = done.includes(ev.n);

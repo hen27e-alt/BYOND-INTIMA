@@ -15,7 +15,7 @@ import { useCatalogue, shippingFor, FREE_SHIPPING_FROM } from '../lib/catalogue'
  * so the visitor sees what they chose without leaving the page.
  */
 export const CartDrawer = () => {
-  const { cart, updateQuantity, removeFromCart, promoCode, applyPromoCode, discountAmount, isCartOpen, closeCart } = useCart();
+  const { cart, addToCart, updateQuantity, removeFromCart, promoCode, applyPromoCode, discountAmount, isCartOpen, closeCart } = useCart();
   const { language } = useLanguage();
   const { showAlert } = useAlert();
   const { products } = useCatalogue();
@@ -60,6 +60,14 @@ export const CartDrawer = () => {
   const missing = Math.max(0, FREE_SHIPPING_FROM - subtotal);
   const progress = Math.min(1, subtotal / FREE_SHIPPING_FROM);
   const total = subtotal + shipping - discountAmount;
+
+  // One small thing that closes the gap to free shipping: the cheapest item that covers it.
+  const filler =
+    needsShipping && missing > 0 && missing <= 150
+      ? products
+          .filter((p) => !p.hidden && !p.soldOut && !cart[p.id] && p.category !== 'experience' && p.price >= missing && p.price <= missing + 120)
+          .sort((a, b) => a.price - b.price)[0]
+      : undefined;
 
   const from = he ? '-100%' : '100%';
 
@@ -125,6 +133,23 @@ export const CartDrawer = () => {
                         style={{ transformOrigin: he ? 'right' : 'left' }}
                       />
                     </div>
+                  </div>
+                )}
+
+                {filler && (
+                  <div className="flex items-center gap-4 border-b border-ink/30 bg-gold/[0.06] px-6 py-3">
+                    {filler.image ? <img src={filler.image} alt="" className={isBoxArt(filler.image) ? 'h-12 w-12 object-cover' : 'h-12 w-12 object-cover grayscale'} /> : null}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-gold">{tx('משלים למשלוח חינם', 'Completes free shipping')}</p>
+                      <p className="truncate text-sm font-bold">{filler.name}</p>
+                    </div>
+                    <button
+                      onClick={() => addToCart(filler.id)}
+                      className="min-h-11 shrink-0 border border-gold/60 px-3 text-sm font-bold hover:bg-gold hover:text-[#110E0D]"
+                      aria-label={tx(`להוסיף את ${filler.name} ב־₪${filler.price}`, `Add ${filler.name} for ₪${filler.price}`)}
+                    >
+                      + ₪{filler.price}
+                    </button>
                   </div>
                 )}
 
