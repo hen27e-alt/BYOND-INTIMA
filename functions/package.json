@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "main": "index.js",
-  "engines": { "node": "20" },
+  "engines": { "node": "22" },
   "dependencies": {
     "@google/genai": "^1.44.0",
     "express": "^4.21.2",
