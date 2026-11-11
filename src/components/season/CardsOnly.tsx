@@ -1,6 +1,5 @@
 import React from 'react';
 import { useCart } from '../../contexts/CartContext';
-import { useAlert } from '../AlertModal';
 import { CARDS_FOR, type Product } from '../../lib/catalogue';
 
 /**
@@ -8,8 +7,7 @@ import { CARDS_FOR, type Product } from '../../lib/catalogue';
  * shipping included. Renders nothing if the pack is hidden or missing from the catalogue.
  */
 export const CardsOnly = ({ boxId, products, he = true }: { boxId: string; products: Product[]; he?: boolean }) => {
-  const { addToCart } = useCart();
-  const { showAlert } = useAlert();
+  const { addToCart, openCart } = useCart();
   const pack = products.find((p) => p.id === CARDS_FOR[boxId]);
   if (!pack || pack.hidden) return null;
 
@@ -22,7 +20,7 @@ export const CardsOnly = ({ boxId, products, he = true }: { boxId: string; produ
       type="button"
       onClick={() => {
         addToCart(pack.id);
-        showAlert(he ? `${pack.name} נוספו לסל` : `${pack.name} added to your cart`);
+        openCart();
       }}
       className="group inline-flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-gold/40 pb-1.5 text-start transition-colors hover:border-gold"
     >

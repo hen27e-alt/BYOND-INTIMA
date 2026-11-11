@@ -6,6 +6,7 @@ import Stripe from 'stripe';
 import { GoogleGenAI } from '@google/genai';
 import { FieldValue } from 'firebase-admin/firestore';
 import { readFileSync } from 'node:fs';
+import { sendOrderEmail } from './email.js';
 
 const CATALOGUE = JSON.parse(readFileSync(new URL('../catalogue.json', import.meta.url), 'utf8'));
 const FREE_SHIPPING_FROM = 300;
@@ -73,7 +74,12 @@ export const createApp = ({ db, auth, baseUrl, dev = false }) => {
     if (event.type === 'checkout.session.completed') {
       const orderId = event.data.object.metadata?.orderId;
       if (orderId) {
-        await db().collection('orders').doc(orderId).set({ status: 'paid', paidAt: FieldValue.serverTimestamp(), stripeSession: event.data.object.id }, { merge: true });
+        const ref = db().collection('orders').doc(orderId);
+        await ref.set({ status: 'paid', paidAt: FieldValue.serverTimestamp(), stripeSession: event.data.object.id }, { merge: true });
+        const snap = await ref.get().catch(() => null);
+        if (snap?.exists && !snap.get('emailSent')) {
+          if (await sendOrderEmail({ id: orderId, ...snap.data() })) await ref.set({ emailSent: true }, { merge: true });
+        }
       }
     }
     res.json({ received: true });
@@ -123,6 +129,8 @@ export const createApp = ({ db, auth, baseUrl, dev = false }) => {
       };
       if (!customer.firstName || !customer.email.includes('@') || !customer.phone || !customer.address) return res.status(400).json({ error: he.badForm });
 
+      // Gift wrapping is free; the note is printed on a card inside the box.
+      const gift = b.gift && b.gift.wrap ? { wrap: true, note: str(b.gift.note, 240) } : null;
       const paymentMethod = b.paymentMethod === 'phone' ? 'phone' : 'credit-card';
       const raw = Array.isArray(b.items) ? b.items : Array.isArray(b.cart) ? b.cart : [];
       if (!raw.length || raw.length > 30) return res.status(400).json({ error: he.badCart });
@@ -151,6 +159,7 @@ export const createApp = ({ db, auth, baseUrl, dev = false }) => {
       const save = ref.set({
         userId: (await uidFrom(req)) ?? null,
         customerDetails: customer,
+        gift,
         items,
         subtotal,
         shipping,
@@ -161,6 +170,11 @@ export const createApp = ({ db, auth, baseUrl, dev = false }) => {
       });
       // Locally there are no server credentials for Firestore; the flow still runs end to end.
       await (dev ? save.catch((e) => console.warn('[dev] order not saved:', e.message)) : save);
+
+      // Phone orders are confirmed now; card orders once Stripe reports the payment.
+      if (paymentMethod === 'phone') {
+        await sendOrderEmail({ id: ref.id, customerDetails: customer, gift, items, shipping, totalAmount: total, paymentMethod });
+      }
 
       let paymentUrl = null;
       if (s) {

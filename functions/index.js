@@ -8,7 +8,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { createApp } from './src/app.js';
 
 const DATABASE_ID = 'ai-studio-1369fc46-d67d-482a-b4c5-dae7d8c9dda1';
-const secrets = ['GEMINI_API_KEY', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'TMDB_API_KEY'].map((n) => defineSecret(n));
+const secrets = ['GEMINI_API_KEY', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'TMDB_API_KEY', 'RESEND_API_KEY'].map((n) => defineSecret(n));
 
 const admin = initializeApp();
 const app = createApp({

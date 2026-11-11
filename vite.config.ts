@@ -16,6 +16,18 @@ export default defineConfig(({mode}) => {
       'process.env.GEMINI_API_KEY': JSON.stringify(exposeKeys ? env.GEMINI_API_KEY || process.env.GEMINI_API_KEY || '' : ''),
       'process.env.API_KEY': JSON.stringify(exposeKeys ? env.API_KEY || process.env.API_KEY || '' : ''),
     },
+    build: {
+      rollupOptions: {
+        output: {
+          // Libraries change rarely; in their own files they stay cached between site updates.
+          manualChunks: {
+            react: ['react', 'react-dom', 'react-router-dom'],
+            firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+            motion: ['motion/react'],
+          },
+        },
+      },
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

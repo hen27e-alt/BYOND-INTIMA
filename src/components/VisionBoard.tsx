@@ -112,6 +112,12 @@ export const VisionBoard = () => {
         </div>
       </div>
 
+      {items.length === 0 && (
+        <div className="border border-dashed border-ink/30 px-6 py-16 text-center">
+          <p className="font-display text-4xl font-bold">הלוח עוד ריק</p>
+          <p className="mx-auto mt-3 max-w-[40ch] text-ink/70">מקום, חוויה, משהו שתרצו לעשות יחד. הוסיפו תמונה ראשונה עם הפלוס, או בקשו השראה.</p>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <AnimatePresence>
           {items.map((item) => (

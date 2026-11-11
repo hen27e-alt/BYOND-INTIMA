@@ -28,7 +28,7 @@ const CATEGORIES = [
 ] as const;
 
 export const Boutique = () => {
-  const { cart, addToCart, updateQuantity, removeFromCart, promoCode, applyPromoCode, discountAmount } = useCart();
+  const { cart, addToCart, updateQuantity, openCart } = useCart();
   const { language } = useLanguage();
   const { isPurchaseMode } = useUI();
   const { showAlert } = useAlert();
@@ -44,22 +44,12 @@ export const Boutique = () => {
   const [activeCategory, setActiveCategory] = useState<(typeof CATEGORIES)[number]['id']>('all');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [personalization, setPersonalization] = useState<Record<string, { name: string; dedication: string }>>({});
-  const [isCartOpen, setIsCartOpen] = useState(false);
-  const [promoInput, setPromoInput] = useState('');
 
   const favoriteProducts: string[] = profile?.favoriteProducts || [];
 
-  React.useEffect(() => {
-    if (!isCartOpen) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setIsCartOpen(false);
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [isCartOpen]);
 
   const cartItems = Object.entries(cart).map(([id, data]) => ({ id, ...data, product: products.find((p) => p.id === id) }));
   const totalItems = cartItems.reduce((acc, item) => acc + item.quantity, 0);
-  const subtotal = cartItems.reduce((acc, item) => acc + (item.product?.price || 0) * item.quantity, 0);
-  const totalPrice = subtotal - discountAmount;
 
   const filtered = useMemo(() => {
     if (activeCategory === 'all') return products;
@@ -99,7 +89,7 @@ export const Boutique = () => {
 
   const add = (p: Product) => {
     addToCart(p.id, personalization[p.id]);
-    setIsCartOpen(true);
+    openCart();
   };
 
   return (
@@ -122,7 +112,7 @@ export const Boutique = () => {
                 {tx('ההזמנות שלי', 'My orders')}
               </Link>
             )}
-            <button onClick={() => setIsCartOpen(true)} className="flex items-center gap-2 bg-ink px-5 py-3 font-bold text-paper hover:bg-spot">
+            <button onClick={() => openCart()} className="flex items-center gap-2 bg-ink px-5 py-3 font-bold text-paper hover:bg-spot">
               <ShoppingBag size={18} />
               {tx('הסל', 'Cart')}
               <span className="bg-paper px-1.5 text-sm text-ink tabular-nums">{totalItems}</span>
@@ -304,7 +294,7 @@ export const Boutique = () => {
                             <Minus size={16} />
                           </button>
                         </div>
-                        <button onClick={() => setIsCartOpen(true)} className="text-sm font-bold underline underline-offset-4 hover:text-spot">
+                        <button onClick={() => openCart()} className="text-sm font-bold underline underline-offset-4 hover:text-spot">
                           {tx('לסל', 'View cart')}
                         </button>
                       </div>
@@ -320,133 +310,6 @@ export const Boutique = () => {
         {filtered.length === 0 && <p className="py-20 text-center text-lg">{tx('אין כרגע מוצרים בקטגוריה הזו.', 'Nothing in this category right now.')}</p>}
       </section>
 
-      {/* Cart drawer */}
-      <AnimatePresence>
-        {isCartOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsCartOpen(false)}
-              className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm"
-            />
-            <motion.aside
-              role="dialog"
-              aria-modal="true"
-              aria-label={tx('סל הקניות', 'Shopping cart')}
-              initial={{ x: he ? '-100%' : '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: he ? '-100%' : '100%' }}
-              transition={{ duration: 0.28, ease: [0.2, 0.8, 0.2, 1] }}
-              className="fixed inset-y-0 end-0 z-[70] flex w-full max-w-md flex-col border-s-[3px] border-ink bg-paper"
-            >
-              <div className="flex items-end justify-between border-b-[3px] border-ink px-6 py-5">
-                <h2 className="font-display text-6xl font-bold leading-[0.85]">{tx('הסל', 'Cart')}</h2>
-                <button onClick={() => setIsCartOpen(false)} className="p-2 hover:text-spot" aria-label={tx('סגירת הסל', 'Close cart')} autoFocus>
-                  <X size={24} />
-                </button>
-              </div>
-
-              {cartItems.length === 0 ? (
-                <div className="flex flex-1 flex-col items-start justify-center gap-4 px-6">
-                  <p className="text-xl font-bold">{tx('הסל ריק.', 'Your cart is empty.')}</p>
-                  <button onClick={() => setIsCartOpen(false)} className="border-[3px] border-ink px-5 py-2.5 font-bold hover:bg-ink hover:text-paper">
-                    {tx('חזרה לבוטיק', 'Back to the boutique')}
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <ul className="flex-1 overflow-y-auto px-6">
-                    {cartItems.map((item) => (
-                      <li key={item.id} className="grid grid-cols-[64px_1fr_auto] items-center gap-4 border-b border-ink py-4">
-                        {item.product?.image ? <img src={item.product.image} alt="" className={isBoxArt(item.product.image) ? "aspect-square w-full object-cover" : "aspect-square w-full object-cover grayscale"} /> : <span />}
-                        <div>
-                          <p className="font-bold leading-snug">{item.product?.name ?? item.id}</p>
-                          {item.personalization?.name && <p className="text-sm text-ink/70">{tx('חריטה:', 'Engraving:')} {item.personalization.name}</p>}
-                          <div className="mt-2 flex items-center gap-3">
-                            <button onClick={() => updateQuantity(item.id, -1)} className="border-2 border-ink p-1 hover:bg-ink hover:text-paper" aria-label={tx('הורדת יחידה', 'Remove one')}>
-                              <Minus size={12} />
-                            </button>
-                            <span className="font-bold tabular-nums">{item.quantity}</span>
-                            <button onClick={() => updateQuantity(item.id, 1)} className="border-2 border-ink p-1 hover:bg-ink hover:text-paper" aria-label={tx('הוספת יחידה', 'Add one')}>
-                              <Plus size={12} />
-                            </button>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-2">
-                          <span className="font-display text-3xl font-bold tabular-nums">₪{(item.product?.price || 0) * item.quantity}</span>
-                          <button onClick={() => removeFromCart(item.id)} className="p-1 hover:text-spot" aria-label={tx('הסרה מהסל', 'Remove from cart')}>
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <div className="border-t-[3px] border-ink px-6 py-5">
-                    {!promoCode ? (
-                      <form
-                        className="flex gap-2"
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          if (!promoInput.trim()) return;
-                          showAlert(tx('קוד הקופון הזה לא תקף כרגע.', 'This promo code is not valid right now.'), tx('קוד לא תקין', 'Invalid code'));
-                        }}
-                      >
-                        <label htmlFor="promo" className="sr-only">{tx('קוד קופון', 'Promo code')}</label>
-                        <input
-                          id="promo"
-                          value={promoInput}
-                          onChange={(e) => setPromoInput(e.target.value)}
-                          placeholder={tx('קוד קופון', 'Promo code')}
-                          className="min-w-0 flex-1 border-2 border-ink bg-paper px-3 py-2 placeholder:text-ink/60 focus:border-spot focus:outline-none"
-                        />
-                        <button type="submit" className="border-2 border-ink px-4 font-bold hover:bg-ink hover:text-paper">
-                          {tx('הפעלה', 'Apply')}
-                        </button>
-                      </form>
-                    ) : (
-                      <div className="flex items-center justify-between text-sm font-bold">
-                        <span>{promoCode} · {tx('הופעל', 'applied')}</span>
-                        <button onClick={() => applyPromoCode(null)} className="underline hover:text-spot">
-                          {tx('הסרה', 'Remove')}
-                        </button>
-                      </div>
-                    )}
-                    <dl className="mt-4 space-y-1 text-base">
-                      <div className="flex justify-between">
-                        <dt>{tx('סכום ביניים', 'Subtotal')}</dt>
-                        <dd className="tabular-nums">₪{subtotal}</dd>
-                      </div>
-                      {discountAmount > 0 && (
-                        <div className="flex justify-between text-spot">
-                          <dt>{tx('הנחה', 'Discount')}</dt>
-                          <dd className="tabular-nums">-₪{discountAmount}</dd>
-                        </div>
-                      )}
-                      <div className="flex items-end justify-between border-t border-ink pt-2">
-                        <dt className="font-bold">{tx('לתשלום', 'Total')}</dt>
-                        <dd className="font-display text-5xl font-bold leading-none tabular-nums">₪{totalPrice}</dd>
-                      </div>
-                    </dl>
-                    <Ticket
-                      label={tx('המשך לתשלום', 'Checkout')}
-                      stub={String(totalItems)}
-                      stubCaption={tx('פריטים', 'items')}
-                      size="md"
-                      tone="spot"
-                      className="mt-5 w-full"
-                      to="/checkout"
-                      onClick={() => setIsCartOpen(false)}
-                    />
-                  </div>
-                </>
-              )}
-            </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
 
     </div>
   );

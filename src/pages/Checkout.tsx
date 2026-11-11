@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Minus, Plus, X } from 'lucide-react';
+import { Minus, Plus, X, Package, Gift } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -9,6 +9,7 @@ import { Ticket } from '../components/season/Ticket';
 import { cardDecks } from '../data/decks';
 import { type Product, useCatalogue, shippingFor, FREE_SHIPPING_FROM, SHIPPING_FEE } from '../lib/catalogue';
 import { cn } from '../lib/utils';
+import { isBoxArt } from '../data/season';
 
 
 type Field = 'firstName' | 'lastName' | 'email' | 'phone' | 'city' | 'address' | 'notes';
@@ -54,6 +55,7 @@ export const Checkout = () => {
     address: '',
     notes: '',
   }));
+  const [gift, setGift] = useState({ wrap: false, note: '' });
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
   const [dedications, setDedications] = useState<Record<string, { name: string; dedication: string }>>(() =>
     Object.fromEntries(
@@ -106,7 +108,7 @@ export const Checkout = () => {
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ customer: form, items: items.map(({ id, quantity, personalization }) => ({ id, quantity, personalization })), paymentMethod }),
+        body: JSON.stringify({ customer: form, items: items.map(({ id, quantity, personalization }) => ({ id, quantity, personalization })), paymentMethod, gift: gift.wrap ? gift : null }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.success) {
@@ -223,9 +225,45 @@ export const Checkout = () => {
               <p className="mt-4 text-sm text-ink/70">
                 {tx(`משלוח ₪${SHIPPING_FEE}, חינם בהזמנה מ־₪${FREE_SHIPPING_FROM}. בחפיסות הקלפים המשלוח כלול.`, `Shipping ₪${SHIPPING_FEE}, free on orders from ₪${FREE_SHIPPING_FROM}. Card packs ship free.`)}
               </p>
+              <p className="mt-2 flex items-center gap-2 text-sm text-ink/70">
+                <Package size={14} className="shrink-0 text-gold" aria-hidden />
+                {tx('החבילה נשלחת באריזה חומה ודיסקרטית. השם שלנו ותוכן החבילה לא מופיעים עליה.', 'The parcel ships in plain, discreet packaging. Neither our name nor the contents appear on it.')}
+              </p>
             </Part>
 
-            <Part n="03" title={tx('הקדשה', 'Dedication')}>
+            <Part n="03" title={tx('מתנה והקדשה', 'Gift and dedication')}>
+              <div className={cn('mb-8 border p-5 transition-colors', gift.wrap ? 'border-gold/70 glow-oxblood' : 'border-ink/30')}>
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={gift.wrap}
+                    onChange={(e) => setGift((g) => ({ ...g, wrap: e.target.checked }))}
+                    className="mt-1.5 h-4 w-4 accent-[var(--color-accent)]"
+                  />
+                  <span>
+                    <span className="flex items-center gap-2 text-lg font-bold">
+                      <Gift size={18} className="text-gold" aria-hidden />
+                      {tx('לעטוף כמתנה', 'Wrap it as a gift')}
+                      <span className="text-sm font-normal text-gold">{tx('ללא עלות', 'free')}</span>
+                    </span>
+                    <span className="mt-1 block text-sm text-ink/70">{tx('נייר שחור, סרט בגוון שמפניה, וכרטיס ברכה בכתב יד. בלי קבלה בתוך החבילה.', 'Black paper, a champagne ribbon and a handwritten card. No receipt inside the parcel.')}</span>
+                  </span>
+                </label>
+                {gift.wrap && (
+                  <label className="mt-5 block">
+                    <span className="mb-1 block text-sm font-bold">{tx('מה לכתוב בכרטיס (לא חובה)', 'What to write on the card (optional)')}</span>
+                    <textarea
+                      value={gift.note}
+                      maxLength={240}
+                      rows={3}
+                      onChange={(e) => setGift((g) => ({ ...g, note: e.target.value }))}
+                      placeholder={tx('למשל: לערב שלנו. שלך, ד׳', 'e.g. For our evening. Yours, D.')}
+                      className="w-full resize-none border-0 border-b-2 border-ink bg-transparent px-0 py-1.5 text-lg outline-none placeholder:text-ink/35 focus:border-spot"
+                    />
+                    <span className="mt-1 block text-end text-xs text-ink/50 tabular-nums">{gift.note.length}/240</span>
+                  </label>
+                )}
+              </div>
               <p className="mb-4 text-base text-ink/75">{tx('לא חובה. שם והקדשה שיודפסו על הפריט.', 'Optional. A name and a line printed on the item.')}</p>
               <ul>
                 {lines.map((l) => (
@@ -291,7 +329,7 @@ export const Checkout = () => {
               <ul className="px-5">
                 {lines.map((l) => (
                   <li key={l.id} className="flex items-start gap-3 border-b border-rule py-4">
-                    {l.product.image && <img src={l.product.image} alt="" className="h-16 w-12 shrink-0 object-cover grayscale" />}
+                    {l.product.image && <img src={l.product.image} alt="" className={cn("h-16 w-12 shrink-0 object-cover", !isBoxArt(l.product.image) && "grayscale")} />}
                     <div className="min-w-0 flex-1">
                       <p className="font-bold leading-snug">{l.product.name}</p>
                       <div className="mt-2 flex items-center gap-2">
@@ -318,6 +356,12 @@ export const Checkout = () => {
                   <dt>{tx('סכום ביניים', 'Subtotal')}</dt>
                   <dd className="tabular-nums">₪{subtotal}</dd>
                 </div>
+                {gift.wrap && (
+                  <div className="flex justify-between">
+                    <dt>{tx('אריזת מתנה', 'Gift wrap')}</dt>
+                    <dd>{tx('חינם', 'Free')}</dd>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <dt>{tx('משלוח', 'Shipping')}</dt>
                   <dd className="tabular-nums">{shipping === 0 ? tx('חינם', 'Free') : `₪${shipping}`}</dd>

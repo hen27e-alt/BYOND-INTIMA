@@ -27,6 +27,10 @@ interface CartContextType {
   promoCode: string | null;
   applyPromoCode: (code: string | null) => void;
   discountAmount: number;
+  /** The cart drawer, shared so any "add to cart" on the site can open it. */
+  isCartOpen: boolean;
+  openCart: () => void;
+  closeCart: () => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -36,6 +40,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const savedCart = localStorage.getItem('byond_cart');
     return savedCart ? JSON.parse(savedCart) : {};
   });
+  const [isCartOpen, setIsCartOpen] = useState(false);
   const [promoCode, setPromoCode] = useState<string | null>(() => localStorage.getItem('byond_promo'));
 
   useEffect(() => {
@@ -102,7 +107,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       cartCount,
       promoCode,
       applyPromoCode,
-      discountAmount
+      discountAmount,
+      isCartOpen,
+      openCart: () => setIsCartOpen(true),
+      closeCart: () => setIsCartOpen(false)
     }}>
       {children}
     </CartContext.Provider>

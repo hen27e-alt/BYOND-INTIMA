@@ -26,12 +26,36 @@ const DarkRoom = ({ evenings, children }: { evenings: { n: number; he: string }[
   // On phones the copy fills the lower half, so the light starts on the empty wall above it.
   const narrow = typeof window !== 'undefined' && window.innerWidth < 768;
 
+  // The light trails the pointer a little, like a candle carried by hand, instead of snapping to it.
+  const target = React.useRef<{ x: number; y: number } | null>(null);
+  const pos = React.useRef<{ x: number; y: number } | null>(null);
+  const raf = React.useRef(0);
+  const tick = React.useCallback(() => {
+    const el = ref.current;
+    const t = target.current;
+    if (!el || !t) return;
+    const p = pos.current ?? t;
+    const nx = p.x + (t.x - p.x) * 0.14;
+    const ny = p.y + (t.y - p.y) * 0.14;
+    pos.current = { x: nx, y: ny };
+    el.style.setProperty('--x', `${nx}px`);
+    el.style.setProperty('--y', `${ny}px`);
+    raf.current = Math.abs(t.x - nx) + Math.abs(t.y - ny) > 0.5 ? requestAnimationFrame(tick) : 0;
+  }, []);
+  React.useEffect(() => () => cancelAnimationFrame(raf.current), []);
+
   const move = (e: React.PointerEvent) => {
     const el = ref.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    el.style.setProperty('--x', `${e.clientX - r.left}px`);
-    el.style.setProperty('--y', `${e.clientY - r.top}px`);
+    if (!pos.current) {
+      // Start the trail from where the light already rests.
+      const cs = getComputedStyle(el);
+      const px = (v: string, size: number) => (v.endsWith('%') ? (parseFloat(v) / 100) * size : parseFloat(v));
+      pos.current = { x: px(cs.getPropertyValue('--x').trim(), r.width), y: px(cs.getPropertyValue('--y').trim(), r.height) };
+    }
+    target.current = { x: e.clientX - r.left, y: e.clientY - r.top };
+    if (!raf.current) raf.current = requestAnimationFrame(tick);
     if (!moved) setMoved(true);
   };
 
@@ -84,7 +108,7 @@ const DarkRoom = ({ evenings, children }: { evenings: { n: number; he: string }[
 
 export const Home = () => {
   const { user } = useFirebase();
-  const { addToCart } = useCart();
+  const { addToCart, openCart } = useCart();
   const { showAlert } = useAlert();
   const reduce = useReducedMotion();
   const { products } = useCatalogue();
@@ -213,7 +237,7 @@ export const Home = () => {
                       tone="spot"
                       onClick={() => {
                         addToCart(box.id);
-                        showAlert(`${box.name} נוסף לסל`);
+                        openCart();
                       }}
                     />
                     <Link to="/experience" className="text-sm font-bold underline underline-offset-4 hover:text-spot">

@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'r
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { ScrollToTop } from './components/ScrollToTop';
-import { AIChat } from './components/AIChat';
 import { AccessibilityMenu } from './components/AccessibilityMenu';
 import { FirebaseProvider, useFirebase } from './contexts/FirebaseContext';
 import { SiteConfigProvider } from './contexts/SiteConfigContext';
@@ -15,14 +14,17 @@ import { UIProvider } from './contexts/UIContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AlertProvider } from './components/AlertModal';
 import { useEffect } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { usePushNotifications } from './hooks/usePushNotifications';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { CookieConsent } from './components/CookieConsent';
-import { TutorialOverlay } from './components/TutorialOverlay';
+import { CartDrawer } from './components/CartDrawer';
 import { BRANDING } from './constants/branding';
 
 // Lazy load pages for performance optimization
+// The chat (markdown, file uploads) and the first-visit tour load after the page, not with it.
+const AIChat = React.lazy(() => import('./components/AIChat').then(m => ({ default: m.AIChat })));
+const TutorialOverlay = React.lazy(() => import('./components/TutorialOverlay').then(m => ({ default: m.TutorialOverlay })));
 const Home = React.lazy(() => import('./pages/Home').then(module => ({ default: module.Home })));
 const Login = React.lazy(() => import('./pages/Login').then(module => ({ default: module.Login })));
 const Experience = React.lazy(() => import('./pages/Experience').then(module => ({ default: module.Experience })));
@@ -60,9 +62,10 @@ const Sitemap = React.lazy(() => import('./pages/Sitemap').then(module => ({ def
 const SpaceObservatory = React.lazy(() => import('./pages/SpaceObservatory').then(module => ({ default: module.SpaceObservatory })));
 
 // Loading fallback component
+/** While a page loads: the wordmark breathing on the dark room, not a spinner. */
 const PageLoader = () => (
-  <div className="min-h-screen flex items-center justify-center bg-brand-cream">
-    <div className="w-12 h-12 border-4 border-brand-gold/20 border-t-brand-gold rounded-full animate-spin"></div>
+  <div className="flex min-h-screen items-center justify-center bg-paper" role="status" aria-label="טוען">
+    <span className="wordmark animate-pulse text-2xl md:text-3xl" dir="ltr">BYOND INTIMA</span>
   </div>
 );
 
@@ -107,16 +110,21 @@ const PageTitleUpdater = () => {
   return null;
 };
 
+/**
+ * Between pages the room dims to black and the next page rises out of it:
+ * a quick fade out, a slower lift in. Reduced motion gets a plain cut.
+ */
 const PageTransition = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
+  const reduce = useReducedMotion();
+  if (reduce) return <>{children}</>;
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence mode="wait" initial={false}>
       <motion.div
         key={location.pathname}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.18, ease: "easeOut" }}
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } }}
+        exit={{ opacity: 0, transition: { duration: 0.16, ease: 'easeIn' } }}
       >
         {children}
       </motion.div>
@@ -124,20 +132,28 @@ const PageTransition = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
+/** Older member pages that take the season skin (square corners, no tiny tracked caps) like the dashboard rooms. */
+const SKINNED = ['/games', '/together', '/fitness', '/observatory', '/journey', '/ai-consultant', '/concierge', '/orders', '/date-recommendations', '/recipe'];
+
 const Layout = ({ children }: { children: React.ReactNode }) => {
+  const { pathname } = useLocation();
+  const skinned = SKINNED.some((p) => pathname === p || pathname.startsWith(p + '/'));
   return (
     <div className="min-h-screen flex flex-col pb-16 lg:pb-0">
       <Navbar />
-      <main className="flex-grow">
+      <main className={skinned ? "flex-grow season-skin" : "flex-grow"}>
         <PageTransition>
           {children}
         </PageTransition>
       </main>
       <MobileBottomNav />
-      <AIChat />
+      <CartDrawer />
+      <Suspense fallback={null}>
+        <AIChat />
+        <TutorialOverlay />
+      </Suspense>
       <AccessibilityMenu />
       <CookieConsent />
-      <TutorialOverlay />
       <Footer />
     </div>
   );

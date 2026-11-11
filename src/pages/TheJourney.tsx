@@ -136,8 +136,8 @@ export const TheJourney = () => {
           >
             <EditableImage 
               contentId="the_journey_main_image"
-              defaultSrc="https://images.unsplash.com/photo-1555529771-835f59bfc50c?auto=format&fit=crop&q=80&w=1200" 
-              alt="Romantic couple looking lovingly at each other in a cozy restaurant" 
+              defaultSrc="/boxes/midnight.svg" 
+              alt="מארז חצות של Byond Intima" 
               className="w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-brand-black via-transparent to-transparent opacity-80 pointer-events-none" />

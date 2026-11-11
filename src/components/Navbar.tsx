@@ -30,7 +30,7 @@ export const Navbar = () => {
   const [isUserMenuOpen, setIsUserMenuOpen] = React.useState(false);
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
   const { user, profile, logout } = useFirebase();
-  const { cartCount } = useCart();
+  const { cartCount, openCart } = useCart();
   const { language, setLanguage } = useLanguage();
   const { seasonNumber } = useSeasonSettings();
   const { isEditMode, setIsEditMode, isAdmin } = useEditMode();
@@ -141,14 +141,14 @@ export const Navbar = () => {
             </AnimatePresence>
           </div>
 
-          <Link to="/checkout" className="relative p-2 text-ink hover:text-spot" aria-label={he ? `סל הקניות, ${cartCount} פריטים` : `Cart, ${cartCount} items`}>
+          <button type="button" onClick={openCart} className="relative p-2 text-ink hover:text-spot" aria-label={he ? `סל הקניות, ${cartCount} פריטים` : `Cart, ${cartCount} items`}>
             <ShoppingBag size={21} />
             {cartCount > 0 && (
               <span className="absolute -end-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center bg-spot px-1 text-[11px] font-bold text-paper tabular-nums">
                 {cartCount}
               </span>
             )}
-          </Link>
+          </button>
 
           <div className="relative">
             <button

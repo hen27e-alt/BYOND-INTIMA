@@ -1,3 +1,4 @@
+import { Unboxing } from '../components/season/Unboxing';
 import { E } from '../components/EditableText';
 import { CardsOnly } from '../components/season/CardsOnly';
 import React from 'react';
@@ -31,7 +32,7 @@ const pad = (n: number) => String(n).padStart(2, '0');
 /** The three boxes as programme notes: one numbered entry per box, then a side-by-side schedule. */
 export const Experience = () => {
   const { language } = useLanguage();
-  const { addToCart } = useCart();
+  const { addToCart, openCart } = useCart();
   const { showAlert } = useAlert();
   const navigate = useNavigate();
   const reduce = useReducedMotion();
@@ -44,7 +45,7 @@ export const Experience = () => {
 
   const addBox = (box: Box) => {
     addToCart(box.id);
-    showAlert(tx(`${box.name} נוסף לסל`, `${box.name} added to your cart`));
+    openCart();
   };
 
   const rows: { label: string; render: (b: Box) => React.ReactNode }[] = [
@@ -181,6 +182,8 @@ export const Experience = () => {
           );
         })}
       </ol>
+
+      <Unboxing boxes={boxes} he={he} onAdd={addBox} />
 
       <section id="compare" className="scroll-mt-24 bg-paper">
         <div className="mx-auto max-w-[1440px] px-4 py-16 md:px-8 lg:px-14 lg:py-24">
