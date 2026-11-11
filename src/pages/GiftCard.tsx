@@ -80,7 +80,7 @@ export const GiftCard = () => {
               <E id="gift_title">כרטיס מתנה</E>
             </h1>
             <E id="gift_lede" as="p" multiline className="mt-5 max-w-[46ch] text-lg leading-relaxed text-ink/80">
-              כשאתם לא בטוחים איזה ערב הם צריכים, תנו להם לבחור. קוד אישי שנשלח במייל, ומממשים אותו על כל מה שבאתר.
+              כשאתם לא בטוחים איזה ערב הם צריכים, תנו להם לבחור. קוד אישי שנשלח אליכם, ומממשים אותו על כל מה שבאתר.
             </E>
 
             <fieldset className="mt-10">
@@ -144,7 +144,7 @@ export const GiftCard = () => {
 
             <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-4">
               <Ticket label={added ? 'נוסף לסל' : 'להוסיף לסל'} stub={chosen ? `₪${chosen.price}` : '–'} tone="spot" size="md" onClick={add} disabled={!chosen || chosen.soldOut} />
-              <p className="text-sm text-ink/60">דיגיטלי, בלי משלוח ובלי המתנה.</p>
+              <p className="text-sm text-ink/60">דיגיטלי, בלי משלוח.</p>
             </div>
           </div>
 
@@ -161,7 +161,7 @@ export const GiftCard = () => {
         <ol className="mt-10 grid gap-10 md:grid-cols-3">
           {[
             ['gift_how_1', 'בוחרים סכום ומשלמים', 'כותבים למי ומה, ומשלמים כרגיל בקופה.'],
-            ['gift_how_2', 'הקוד מגיע במייל', 'מיד אחרי התשלום מקבלים קוד אישי במייל, והוא מופיע גם ב"ההזמנות שלי". מעבירים אותו הלאה איך שנוח: בהודעה, בכרטיס, בתוך מתנה.'],
+            ['gift_how_2', 'הקוד מגיע אליכם', 'אחרי התשלום מקבלים קוד אישי, והוא מופיע גם ב"ההזמנות שלי". מעבירים אותו הלאה איך שנוח: בהודעה, בכרטיס, בתוך מתנה.'],
             ['gift_how_3', 'הם בוחרים את הערב', 'מקלידים את הקוד בקופה. מה שלא נוצל נשאר ביתרה לפעם הבאה.'],
           ].map(([id, t, d], i) => (
             <li key={id} className="border-t border-ink/30 pt-5">

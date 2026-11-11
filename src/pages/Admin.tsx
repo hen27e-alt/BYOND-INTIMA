@@ -693,7 +693,7 @@ const OrdersTab = ({ canWrite, notify }: { canWrite: boolean; notify: ReturnType
           );
         })}
       </ul>
-      <p className="pt-4 text-sm text-ink/60">מוצגות הזמנות של לקוחות מחוברים. הזמנות של אורחים מגיעות דרך Stripe ולא נשמרות כאן.</p>
+      <p className="pt-4 text-sm text-ink/60">כל ההזמנות מהאתר מופיעות כאן, גם של מי שהזמין בלי חשבון.</p>
     </section>
   );
 };

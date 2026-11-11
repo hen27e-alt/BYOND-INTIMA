@@ -36,6 +36,12 @@ export const CARDS_PRICE = 99;
 
 /** Shipping rule shared by the cart and checkout. Items that include shipping never trigger the fee. */
 export const FREE_SHIPPING_FROM = 300;
+
+/**
+ * Card payment on the site. Off until the payment provider is connected: checkout
+ * then offers only a phone order, and no page promises card payment.
+ */
+export const CARD_PAYMENTS = false;
 export const SHIPPING_FEE = 25;
 export const shippingFor = (lines: { price: number; quantity: number; shippingIncluded?: boolean }[]) => {
   const subtotal = lines.reduce((s, l) => s + l.price * l.quantity, 0);

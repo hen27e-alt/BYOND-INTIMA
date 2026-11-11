@@ -7,7 +7,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useAlert } from '../components/AlertModal';
 import { Ticket } from '../components/season/Ticket';
 import { cardDecks } from '../data/decks';
-import { type Product, useCatalogue, shippingFor, FREE_SHIPPING_FROM, SHIPPING_FEE } from '../lib/catalogue';
+import { type Product, useCatalogue, shippingFor, FREE_SHIPPING_FROM, SHIPPING_FEE, CARD_PAYMENTS } from '../lib/catalogue';
 import { cn } from '../lib/utils';
 import { isBoxArt } from '../data/season';
 
@@ -45,7 +45,7 @@ export const Checkout = () => {
   const tx = (h: string, e: string) => (he ? h : e);
 
   const [loading, setLoading] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'credit-card' | 'phone'>('credit-card');
+  const [paymentMethod, setPaymentMethod] = useState<'credit-card' | 'phone'>(CARD_PAYMENTS ? 'credit-card' : 'phone');
   const [form, setForm] = useState<Record<Field, string>>(() => ({
     firstName: profile?.displayName?.split(' ')[0] ?? '',
     lastName: profile?.displayName?.split(' ').slice(1).join(' ') ?? '',
@@ -250,7 +250,7 @@ export const Checkout = () => {
             <Part n="02" title={tx('לאן שולחים', 'Where to send it')}>
               {digitalOnly ? (
                 <p className="text-lg text-ink/80">
-                  {tx('כרטיס מתנה הוא דיגיטלי: הקוד יישלח לאימייל שלמעלה מיד אחרי התשלום, ויופיע גם ב"ההזמנות שלי".', 'A gift card is digital: the code goes to the email above as soon as you pay, and also appears in "My orders".')}
+                  {tx('כרטיס מתנה הוא דיגיטלי, בלי משלוח. אחרי התשלום נשלח לכם את הקוד, והוא יופיע גם ב"ההזמנות שלי".', 'A gift card is digital, nothing ships. Once paid we send you the code, and it also appears in "My orders".')}
                 </p>
               ) : (
               <>
@@ -402,13 +402,20 @@ export const Checkout = () => {
               )}
               {due === 0 ? (
                 <p className="text-lg font-bold text-gold">{tx('כרטיס המתנה מכסה את כל ההזמנה. אין מה לשלם.', 'The gift card covers the whole order. Nothing to pay.')}</p>
+              ) : !CARD_PAYMENTS ? (
+                <div className="border-[3px] border-ink p-5">
+                  <p className="text-lg font-bold">{tx('הזמנה טלפונית', 'Order by phone')}</p>
+                  <p className="mt-1 text-sm text-ink/75">
+                    {tx('שולחים את ההזמנה, ואנחנו חוזרים אליכם בטלפון כדי להשלים את התשלום. תשלום באשראי ישירות באתר יתווסף בקרוב.', "Send the order and we'll call you to complete the payment. Card payment on the site is coming soon.")}
+                  </p>
+                </div>
               ) : (
               <fieldset>
                 <legend className="sr-only">{tx('אמצעי תשלום', 'Payment method')}</legend>
                 <div className="grid border-[3px] border-ink md:grid-cols-2">
                   {(
                     [
-                      ['credit-card', tx('כרטיס אשראי', 'Credit card'), tx('תועברו לעמוד התשלום המאובטח של Stripe. אנחנו לא רואים ולא שומרים את פרטי הכרטיס.', "You'll go to Stripe's secure payment page. We never see or store your card details.")],
+                      ['credit-card', tx('כרטיס אשראי', 'Credit card'), tx('תועברו לעמוד תשלום מאובטח. אנחנו לא רואים ולא שומרים את פרטי הכרטיס.', "You'll go to a secure payment page. We never see or store your card details.")],
                       ['phone', tx('הזמנה טלפונית', 'Order by phone'), tx('נחזור אליכם בטלפון כדי להשלים את התשלום.', "We'll call you to complete the payment.")],
                     ] as const
                   ).map(([id, label, note], i) => (

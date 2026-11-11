@@ -266,7 +266,7 @@ export const Occasions = () => {
               <E id={k('gift_title')}>זה בשביל זוג אחר?</E>
             </h2>
             <E id={k('gift_text')} as="p" multiline className="mt-3 max-w-[48ch] text-lg text-ink/75">
-              כרטיס מתנה, והם בוחרים את הערב בעצמם. הקוד מגיע במייל מיד אחרי התשלום.
+              כרטיס מתנה, והם בוחרים את הערב בעצמם. הקוד נשלח אליכם אחרי התשלום.
             </E>
           </div>
           <Ticket label="לכרטיס מתנה" stub="₪" tone="ink" size="md" to="/gift-card" />
