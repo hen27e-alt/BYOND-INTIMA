@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" width="800" height="1000">
+<defs>
+  <radialGradient id="spot" cx="50%" cy="40%" r="62%"><stop offset="0" stop-color="rgba(217,54,31,0.22)"/><stop offset="1" stop-color="rgba(0,0,0,0)"/></radialGradient>
+  <linearGradient id="foil" x1="0" y1="0" x2="1" y2="0.35"><stop offset="0" stop-color="#8E6B3A"/><stop offset="0.25" stop-color="#F4E4BE"/><stop offset="0.5" stop-color="#C9A66B"/><stop offset="0.75" stop-color="#FBEFD2"/><stop offset="1" stop-color="#8E6B3A"/></linearGradient>
+  <linearGradient id="card" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#241C1B"/><stop offset="0.55" stop-color="#120E0E"/><stop offset="1" stop-color="#0A0808"/></linearGradient>
+  <filter id="blur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="22"/></filter>
+</defs>
+<rect width="800" height="1000" fill="#0B0909"/>
+<rect width="800" height="1000" fill="url(#spot)"/>
+<ellipse cx="400" cy="760" rx="270" ry="26" fill="#000" opacity="0.7" filter="url(#blur)"/>
+<g transform="rotate(-8 400 500)">
+  <rect x="130" y="330" width="540" height="340" rx="18" fill="url(#card)" stroke="url(#foil)" stroke-width="2"/>
+  <rect x="150" y="350" width="500" height="300" rx="10" fill="none" stroke="#C9A66B" stroke-opacity="0.25"/>
+  <text x="400" y="440" text-anchor="middle" font-family="Georgia, 'Frank Ruhl Libre', serif" font-size="30" letter-spacing="10" fill="url(#foil)">BYOND INTIMA</text>
+  <line x1="300" y1="470" x2="500" y2="470" stroke="url(#foil)" stroke-width="1.5"/>
+  <text x="400" y="560" text-anchor="middle" font-family="Georgia, 'Frank Ruhl Libre', serif" font-size="64" font-weight="700" fill="url(#foil)">GIFT</text>
+  <text x="400" y="615" text-anchor="middle" font-family="Georgia, serif" font-size="16" letter-spacing="6" fill="#C9A66B" fill-opacity="0.7">FOR TWO</text>
+  <rect x="595" y="575" width="44" height="34" rx="5" fill="url(#foil)" opacity="0.85"/>
+</g>
+</svg>

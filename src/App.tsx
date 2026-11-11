@@ -60,6 +60,8 @@ const AIConsultant = React.lazy(() => import('./pages/AIConsultant'));
 const Together = React.lazy(() => import('./pages/Together').then(module => ({ default: module.Together })));
 const Evening = React.lazy(() => import('./pages/Evening'));
 const Faq = React.lazy(() => import('./pages/Faq'));
+const GiftCard = React.lazy(() => import('./pages/GiftCard').then(module => ({ default: module.GiftCard })));
+const Occasions = React.lazy(() => import('./pages/Occasions').then(module => ({ default: module.Occasions })));
 const Sitemap = React.lazy(() => import('./pages/Sitemap').then(module => ({ default: module.Sitemap })));
 const SpaceObservatory = React.lazy(() => import('./pages/SpaceObservatory').then(module => ({ default: module.SpaceObservatory })));
 
@@ -92,6 +94,8 @@ const PageTitleUpdater = () => {
       case '/about': pageName = he ? 'עלינו' : 'About'; break;
       case '/updates': pageName = t('nav.updates'); break;
       case '/faq': pageName = he ? 'שאלות ותשובות' : 'FAQ'; break;
+      case '/gift-card': pageName = he ? 'כרטיס מתנה' : 'Gift card'; break;
+      case '/occasions': pageName = he ? 'ערבים שמסמנים' : 'Occasions'; break;
       case '/legal': pageName = he ? 'תקנון ומדיניות' : 'Terms & policies'; break;
       case '/admin': pageName = he ? 'פאנל ניהול' : 'Admin'; break;
       case '/admin/tools': pageName = he ? 'כלי ניהול' : 'Admin tools'; break;
@@ -104,6 +108,11 @@ const PageTitleUpdater = () => {
       case '/together': pageName = 'Beyond Together'; break;
       default: 
         if (path.startsWith('/decks/')) pageName = t('home.decks.details');
+        else if (path.startsWith('/occasions/')) {
+          const names: Record<string, [string, string]> = { valentines: ['ולנטיין', "Valentine's"], 'tu-beav': ['ט״ו באב', 'Tu BeAv'], anniversary: ['יום נישואין', 'Anniversary'] };
+          const n = names[path.split('/')[2] ?? ''];
+          pageName = n ? (he ? n[0] : n[1]) : he ? 'ערבים שמסמנים' : 'Occasions';
+        } else if (path.startsWith('/evening')) pageName = he ? 'מצב ערב' : 'Evening mode';
         else pageName = path.split('/').filter(Boolean).pop() || '';
     }
 
@@ -235,6 +244,9 @@ const AppContent = () => {
             <Route path="/observatory" element={<SpaceObservatory />} />
             <Route path="/sitemap" element={<Sitemap />} />
             <Route path="/faq" element={<Faq />} />
+            <Route path="/gift-card" element={<GiftCard />} />
+            <Route path="/occasions" element={<Occasions />} />
+            <Route path="/occasions/:slug" element={<Occasions />} />
             <Route path="/evening" element={<Evening />} />
             <Route path="/evening/:suit" element={<Evening />} />
           </Routes>

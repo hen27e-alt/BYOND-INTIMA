@@ -65,7 +65,7 @@ export const CartDrawer = () => {
   const filler =
     needsShipping && missing > 0 && missing <= 150
       ? products
-          .filter((p) => !p.hidden && !p.soldOut && !cart[p.id] && p.category !== 'experience' && p.price >= missing && p.price <= missing + 120)
+          .filter((p) => !p.hidden && !p.soldOut && !cart[p.id] && p.category !== 'experience' && !p.giftCard && p.price >= missing && p.price <= missing + 120)
           .sort((a, b) => a.price - b.price)[0]
       : undefined;
 
@@ -171,7 +171,11 @@ export const CartDrawer = () => {
                         )}
                         <div className="min-w-0">
                           <p className="font-bold leading-snug">{item.product.name}</p>
-                          {item.personalization?.name && <p className="text-sm text-ink/70">{tx('חריטה:', 'Engraving:')} {item.personalization.name}</p>}
+                          {item.personalization?.name && (
+                            <p className="text-sm text-ink/70">
+                              {item.id.startsWith('gift_card_') ? tx('ל:', 'For:') : tx('חריטה:', 'Engraving:')} {item.personalization.name}
+                            </p>
+                          )}
                           <div className="mt-2 flex items-center gap-1">
                             <button onClick={() => updateQuantity(item.id, -1)} className="grid h-9 w-9 place-items-center border border-ink/40 hover:border-gold hover:text-gold" aria-label={tx('הורדת יחידה', 'Remove one')}>
                               <Minus size={12} />

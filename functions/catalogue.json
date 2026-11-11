@@ -127,6 +127,24 @@
     "price": 850,
     "kind": "boutique"
   },
+  "gift_card_300": {
+    "name": "כרטיס מתנה ₪300",
+    "price": 300,
+    "kind": "boutique",
+    "shippingIncluded": true
+  },
+  "gift_card_600": {
+    "name": "כרטיס מתנה ₪600",
+    "price": 600,
+    "kind": "boutique",
+    "shippingIncluded": true
+  },
+  "gift_card_900": {
+    "name": "כרטיס מתנה ₪900",
+    "price": 900,
+    "kind": "boutique",
+    "shippingIncluded": true
+  },
   "true": {
     "name": "BYOND אמת",
     "price": 119,

@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Minus, Plus, X, Package, Gift } from 'lucide-react';
+import { Minus, Plus, X, Package, Gift, Ticket as TicketIcon } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -56,6 +56,11 @@ export const Checkout = () => {
     notes: '',
   }));
   const [gift, setGift] = useState({ wrap: false, note: '' });
+  // A gift card being redeemed: what was typed, and the card once the server confirmed it.
+  const [giftInput, setGiftInput] = useState('');
+  const [giftCard, setGiftCard] = useState<{ code: string; balance: number } | null>(null);
+  const [giftError, setGiftError] = useState('');
+  const [giftChecking, setGiftChecking] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
   const [dedications, setDedications] = useState<Record<string, { name: string; dedication: string }>>(() =>
     Object.fromEntries(
@@ -70,6 +75,32 @@ export const Checkout = () => {
   const subtotal = lines.reduce((s, l) => s + l.product.price * l.quantity, 0);
   const shipping = shippingFor(lines.map((l) => ({ price: l.product.price, quantity: l.quantity, shippingIncluded: l.product.shippingIncluded })));
   const total = subtotal + shipping;
+  const hasGiftCards = lines.some((l) => l.id.startsWith('gift_card_'));
+  // Only gift cards in the cart: nothing ships, so no address.
+  const digitalOnly = lines.length > 0 && lines.every((l) => l.id.startsWith('gift_card_'));
+  const giftApplied = giftCard && !hasGiftCards ? Math.min(giftCard.balance, total) : 0;
+  const due = total - giftApplied;
+
+  const checkGiftCard = async () => {
+    const code = giftInput.trim();
+    if (!code || giftChecking) return;
+    setGiftChecking(true);
+    setGiftError('');
+    try {
+      const r = await fetch('/api/gift-card/check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setGiftCard(null);
+        setGiftError(data.error ?? tx('לא הצלחנו לבדוק את הקוד. נסו שוב.', 'We could not check the code. Try again.'));
+        return;
+      }
+      setGiftCard({ code: data.code, balance: data.balance });
+    } catch {
+      setGiftError(tx('לא הצלחנו לבדוק את הקוד. נסו שוב.', 'We could not check the code. Try again.'));
+    } finally {
+      setGiftChecking(false);
+    }
+  };
 
   const setField = (name: Field, value: string) => {
     setForm((f) => ({ ...f, [name]: value }));
@@ -79,7 +110,7 @@ export const Checkout = () => {
   const validate = () => {
     const req = tx('שדה חובה', 'Required');
     const e: Partial<Record<Field, string>> = {};
-    (['firstName', 'lastName', 'email', 'phone', 'city', 'address'] as Field[]).forEach((k) => {
+    (['firstName', 'lastName', 'email', 'phone', ...(digitalOnly ? [] : ['city', 'address'])] as Field[]).forEach((k) => {
       if (!form[k].trim()) e[k] = req;
     });
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = tx('כתובת אימייל לא תקינה', 'Invalid email address');
@@ -108,7 +139,7 @@ export const Checkout = () => {
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ customer: form, items: items.map(({ id, quantity, personalization }) => ({ id, quantity, personalization })), paymentMethod, gift: gift.wrap ? gift : null }),
+        body: JSON.stringify({ customer: form, items: items.map(({ id, quantity, personalization }) => ({ id, quantity, personalization })), paymentMethod, gift: gift.wrap && !digitalOnly ? gift : null, giftCode: giftApplied ? giftCard?.code : null }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.success) {
@@ -131,8 +162,8 @@ export const Checkout = () => {
           orderData: {
             orderId: data.orderId,
             customerName: `${form.firstName} ${form.lastName}`,
-            total: data.total ?? total,
-            address: `${form.address}, ${form.city}`,
+            total: data.total ?? due,
+            address: digitalOnly ? '' : `${form.address}, ${form.city}`,
             phone: form.phone,
             items: data.items ?? items,
           },
@@ -217,6 +248,12 @@ export const Checkout = () => {
             </Part>
 
             <Part n="02" title={tx('לאן שולחים', 'Where to send it')}>
+              {digitalOnly ? (
+                <p className="text-lg text-ink/80">
+                  {tx('כרטיס מתנה הוא דיגיטלי: הקוד יישלח לאימייל שלמעלה מיד אחרי התשלום, ויופיע גם ב"ההזמנות שלי".', 'A gift card is digital: the code goes to the email above as soon as you pay, and also appears in "My orders".')}
+                </p>
+              ) : (
+              <>
               <div className="grid gap-6 md:grid-cols-2">
                 {input('city', tx('עיר', 'City'), { autoComplete: 'address-level2' })}
                 {input('address', tx('רחוב ומספר', 'Street and number'), { autoComplete: 'street-address' })}
@@ -229,10 +266,12 @@ export const Checkout = () => {
                 <Package size={14} className="shrink-0 text-gold" aria-hidden />
                 {tx('החבילה נשלחת באריזה חומה ודיסקרטית. השם שלנו ותוכן החבילה לא מופיעים עליה.', 'The parcel ships in plain, discreet packaging. Neither our name nor the contents appear on it.')}
               </p>
+              </>
+              )}
             </Part>
 
             <Part n="03" title={tx('מתנה והקדשה', 'Gift and dedication')}>
-              <div className={cn('mb-8 border p-5 transition-colors', gift.wrap ? 'border-gold/70 glow-oxblood' : 'border-ink/30')}>
+              <div className={cn('mb-8 border p-5 transition-colors', digitalOnly && 'hidden', gift.wrap ? 'border-gold/70 glow-oxblood' : 'border-ink/30')}>
                 <label className="flex cursor-pointer items-start gap-3">
                   <input
                     type="checkbox"
@@ -291,6 +330,79 @@ export const Checkout = () => {
             </Part>
 
             <Part n="04" title={tx('תשלום', 'Payment')}>
+              {!hasGiftCards && (
+                <div className="mb-8">
+                  <label htmlFor="co-giftcode" className="mb-1 flex items-center gap-2 text-sm font-bold">
+                    <TicketIcon size={16} className="text-gold" aria-hidden />
+                    {tx('יש לכם כרטיס מתנה?', 'Have a gift card?')}
+                  </label>
+                  {giftCard ? (
+                    <div className="flex flex-wrap items-center justify-between gap-3 border border-gold/60 bg-gold/[0.06] px-4 py-3">
+                      <p>
+                        <bdi dir="ltr" className="font-mono font-bold tracking-wider">
+                          {giftCard.code}
+                        </bdi>
+                        <span className="ms-3 text-sm text-ink/75">
+                          {tx(`יתרה ₪${giftCard.balance}, ירדו ₪${giftApplied} מההזמנה`, `Balance ₪${giftCard.balance}, ₪${giftApplied} off this order`)}
+                        </span>
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGiftCard(null);
+                          setGiftInput('');
+                        }}
+                        className="text-sm font-bold underline underline-offset-4 hover:text-spot"
+                      >
+                        {tx('להסיר', 'Remove')}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-3">
+                      <input
+                        id="co-giftcode"
+                        value={giftInput}
+                        onChange={(e) => {
+                          setGiftInput(e.target.value);
+                          setGiftError('');
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            void checkGiftCard();
+                          }
+                        }}
+                        dir="ltr"
+                        placeholder="BYND-XXXX-XXXX"
+                        autoComplete="off"
+                        aria-invalid={Boolean(giftError)}
+                        aria-describedby={giftError ? 'co-giftcode-err' : undefined}
+                        className={cn(
+                          'min-w-0 flex-1 border-0 border-b-2 bg-transparent px-0 py-2 font-mono text-lg uppercase tracking-wider outline-none placeholder:normal-case placeholder:tracking-normal placeholder:text-ink/35 focus:border-spot',
+                          giftError ? 'border-spot' : 'border-ink',
+                          he && 'text-right'
+                        )}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void checkGiftCard()}
+                        disabled={!giftInput.trim() || giftChecking}
+                        className="border-2 border-ink px-5 text-base font-bold transition-colors hover:bg-ink hover:text-paper disabled:opacity-40"
+                      >
+                        {giftChecking ? tx('בודקים…', 'Checking…') : tx('לממש', 'Apply')}
+                      </button>
+                    </div>
+                  )}
+                  {giftError && (
+                    <p id="co-giftcode-err" className="mt-1 text-sm font-bold text-spot">
+                      {giftError}
+                    </p>
+                  )}
+                </div>
+              )}
+              {due === 0 ? (
+                <p className="text-lg font-bold text-gold">{tx('כרטיס המתנה מכסה את כל ההזמנה. אין מה לשלם.', 'The gift card covers the whole order. Nothing to pay.')}</p>
+              ) : (
               <fieldset>
                 <legend className="sr-only">{tx('אמצעי תשלום', 'Payment method')}</legend>
                 <div className="grid border-[3px] border-ink md:grid-cols-2">
@@ -317,6 +429,7 @@ export const Checkout = () => {
                   ))}
                 </div>
               </fieldset>
+              )}
             </Part>
             <button type="submit" className="sr-only">
               {tx('שליחת ההזמנה', 'Place order')}
@@ -364,16 +477,22 @@ export const Checkout = () => {
                 )}
                 <div className="flex justify-between">
                   <dt>{tx('משלוח', 'Shipping')}</dt>
-                  <dd className="tabular-nums">{shipping === 0 ? tx('חינם', 'Free') : `₪${shipping}`}</dd>
+                  <dd className="tabular-nums">{digitalOnly ? tx('דיגיטלי', 'Digital') : shipping === 0 ? tx('חינם', 'Free') : `₪${shipping}`}</dd>
                 </div>
+                {giftApplied > 0 && (
+                  <div className="flex justify-between text-gold">
+                    <dt>{tx('כרטיס מתנה', 'Gift card')}</dt>
+                    <dd className="tabular-nums">−₪{giftApplied}</dd>
+                  </div>
+                )}
                 <div className="flex items-end justify-between border-t-[3px] border-ink pt-3">
                   <dt className="font-bold">{tx('לתשלום', 'Total')}</dt>
-                  <dd className="font-display text-6xl font-bold leading-none tabular-nums">₪{total}</dd>
+                  <dd className="font-display text-6xl font-bold leading-none tabular-nums">₪{due}</dd>
                 </div>
               </dl>
               <div className="px-5 pb-5">
                 <Ticket
-                  label={loading ? tx('שולחים…', 'Sending…') : paymentMethod === 'phone' ? tx('לשלוח הזמנה', 'Send order') : tx('לתשלום מאובטח', 'Pay securely')}
+                  label={loading ? tx('שולחים…', 'Sending…') : due === 0 || paymentMethod === 'phone' ? tx('לשלוח הזמנה', 'Send order') : tx('לתשלום מאובטח', 'Pay securely')}
                   stub={String(cartCount)}
                   stubCaption={tx('פריטים', 'items')}
                   tone="spot"

@@ -39,7 +39,8 @@ export const Boutique = () => {
 
   const { products: catalogue } = useCatalogue();
   const { memberDiscountPercent } = useSeasonSettings();
-  const products = useMemo(() => catalogue.filter(visible), [catalogue]);
+  // Gift cards have their own page (/gift-card); the boutique is for things that ship.
+  const products = useMemo(() => catalogue.filter((p) => visible(p) && !p.giftCard), [catalogue]);
   const memberPrice = (price: number) => memberPriceFor(price, memberDiscountPercent);
   const [activeCategory, setActiveCategory] = useState<(typeof CATEGORIES)[number]['id']>('all');
   const [expanded, setExpanded] = useState<string | null>(null);

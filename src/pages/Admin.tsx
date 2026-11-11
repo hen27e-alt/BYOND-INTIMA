@@ -494,6 +494,9 @@ type Order = {
   paymentMethod?: string;
   createdAt?: { toDate?: () => Date };
   customerDetails?: Record<string, string>;
+  giftCode?: string | null;
+  giftApplied?: number;
+  giftCards?: { code: string; amount: number; to?: string }[];
   items?: { id: string; name: string; price: number; quantity: number; personalization?: { name?: string; dedication?: string } | null }[];
 };
 
@@ -646,8 +649,28 @@ const OrdersTab = ({ canWrite, notify }: { canWrite: boolean; notify: ReturnType
                       ))}
                     </ul>
                     <p className="mt-2 text-sm text-ink/70">
-                      משלוח ₪{o.shipping ?? 0} · תשלום: {o.paymentMethod === 'phone' ? 'טלפוני' : 'כרטיס אשראי'}
+                      משלוח ₪{o.shipping ?? 0} · תשלום: {o.paymentMethod === 'phone' ? 'טלפוני' : o.paymentMethod === 'gift-card' ? 'כרטיס מתנה' : 'כרטיס אשראי'}
+                      {!!o.giftApplied && ` · מומש כרטיס מתנה ${o.giftCode ?? ''} על ₪${o.giftApplied}`}
                     </p>
+                    {!!o.giftCards?.length && (
+                      <div className="mt-4 border border-gold/60 p-3">
+                        <h3 className="text-sm font-bold">כרטיסי מתנה שנקנו</h3>
+                        <ul className="mt-1">
+                          {o.giftCards.map((g) => (
+                            <li key={g.code} className="flex justify-between gap-3 py-1 text-sm">
+                              <bdi dir="ltr" className="font-mono font-bold">{g.code}</bdi>
+                              <span>
+                                ₪{g.amount}
+                                {g.to && ` · ל${g.to}`}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="mt-2 text-xs text-ink/70">
+                          הקוד עובד ברגע שההזמנה במצב "שולמה" ומעלה.{o.paymentMethod === 'phone' && ' בהזמנה טלפונית: אחרי שגביתם, העבירו את המצב ל"שולמה" ושלחו ללקוח את הקוד.'}
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <h3 className="mb-2 text-sm font-bold">לאן שולחים</h3>

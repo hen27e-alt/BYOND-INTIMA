@@ -34,6 +34,8 @@ export const Footer = () => {
         { to: '/experience', label: tx('המארזים', 'The boxes') },
         { to: '/boutique', label: tx('הבוטיק', 'Boutique') },
         { to: '/cards', label: tx('קלפי המשימה', 'Mission cards') },
+        { to: '/gift-card', label: tx('כרטיס מתנה', 'Gift card') },
+        { to: '/occasions', label: tx('ערבים שמסמנים', 'Occasions') },
         { to: user ? '/dashboard' : '/login', label: tx('המקום שלכם', 'Your place') },
       ],
     },

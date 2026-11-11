@@ -23,6 +23,21 @@ export const orderEmailHtml = (order) => {
     ? `<tr><td colspan="2" style="padding:18px 0 0;color:#C9A66B;font-size:14px">עטוף כמתנה${order.gift.note ? `, ובכרטיס: „${esc(order.gift.note)}”` : ''}</td></tr>`
     : '';
   const phone = order.paymentMethod === 'phone';
+  const paid = ['paid', 'processing', 'shipped', 'delivered'].includes(order.status);
+  const used = order.giftApplied > 0
+    ? `<tr><td style="padding:12px 0 0;color:#a89a88;font-size:14px">כרטיס מתנה ${esc(order.giftCode ?? '')}</td><td style="padding:12px 0 0;color:#C9A66B;font-size:14px;text-align:left">−${ils(order.giftApplied)}</td></tr>`
+    : '';
+  const cards = (order.giftCards ?? []).length
+    ? `<tr><td style="padding:28px 0 0">${(order.giftCards ?? [])
+        .map(
+          (g) => `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;border:1px solid #C9A66B;background:#1a1412"><tr><td style="padding:20px 22px">
+            <div style="color:#C9A66B;font-size:13px;letter-spacing:2px">כרטיס מתנה ${ils(g.amount)}${g.to ? ` · ל${esc(g.to)}` : ''}</div>
+            <div dir="ltr" style="margin-top:8px;font-family:'Courier New',monospace;font-size:26px;letter-spacing:3px;color:#EFE6D8">${paid ? esc(g.code) : '••••-••••-••••'}</div>
+            <div style="margin-top:8px;color:#a89a88;font-size:13px">${paid ? 'מממשים בקופה באתר, תקף חמש שנים.' : 'הקוד ייפתח לשימוש ברגע שהתשלום יושלם.'}</div>
+          </td></tr></table>`
+        )
+        .join('')}</td></tr>`
+    : '';
 
   return `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="color-scheme" content="dark"><title>ההזמנה התקבלה</title></head>
 <body style="margin:0;background:#110E0D">
@@ -32,14 +47,16 @@ export const orderEmailHtml = (order) => {
   <tr><td style="height:1px;background:linear-gradient(90deg,transparent,#C9A66B,#D9361F,transparent);background-color:#5a4632"></td></tr>
   <tr><td style="padding:36px 0 8px;font-family:'Frank Ruhl Libre',Georgia,serif;font-size:40px;line-height:1.05;color:#EFE6D8;font-weight:700">תודה, ${esc(c.firstName)}.<br><span style="color:#C9A66B">ההזמנה התקבלה.</span></td></tr>
   <tr><td style="padding:8px 0 28px;color:#c9bcaa;font-size:16px;line-height:1.6">${
-    phone ? 'נחזור אליכם בטלפון בקרוב כדי להשלים את התשלום.' : 'התשלום עבר. אנחנו כבר מכינים את החבילה.'
+    phone ? 'נחזור אליכם בטלפון בקרוב כדי להשלים את התשלום.' : order.paymentMethod === 'gift-card' ? 'שולם במלואו בכרטיס מתנה. אנחנו כבר מכינים את החבילה.' : 'התשלום עבר. אנחנו כבר מכינים את החבילה.'
   } מספר ההזמנה: <span dir="ltr" style="color:#EFE6D8">${esc(order.id)}</span></td></tr>
   <tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0">
     ${rows}
     <tr><td style="padding:12px 0 0;color:#a89a88;font-size:14px">משלוח</td><td style="padding:12px 0 0;color:#a89a88;font-size:14px;text-align:left">${order.shipping ? ils(order.shipping) : 'חינם'}</td></tr>
     <tr><td style="padding:16px 0 0;color:#EFE6D8;font-size:16px;font-weight:700">לתשלום</td><td style="padding:16px 0 0;color:#C9A66B;font-family:'Frank Ruhl Libre',Georgia,serif;font-size:32px;text-align:left">${ils(order.totalAmount)}</td></tr>
+    ${used}
     ${gift}
   </table></td></tr>
+  ${cards}
   <tr><td style="padding:32px 0 0;color:#c9bcaa;font-size:15px;line-height:1.6">נשלח אל: ${esc(c.address)}, ${esc(c.city)}<br><span style="color:#a89a88">החבילה מגיעה באריזה דיסקרטית. השם שלנו ותוכן החבילה לא מופיעים עליה.</span></td></tr>
   <tr><td style="padding:36px 0"><a href="${SITE}/orders" style="display:inline-block;background:#D9361F;color:#fff;text-decoration:none;font-weight:700;padding:14px 28px;font-size:16px">לצפייה בהזמנה</a></td></tr>
   <tr><td style="border-top:1px solid #3a302b;padding-top:20px;color:#7d7064;font-size:12px">Byond Intima · שאלה על ההזמנה? פשוט עונים למייל הזה.</td></tr>

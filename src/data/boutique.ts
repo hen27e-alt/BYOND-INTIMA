@@ -337,5 +337,41 @@ export const boutiqueProducts = [
     atmosphereLevel: 'Intense',
     hasAiGuide: true,
     reviews: { rating: 5.0, count: 12 }
+  },
+  {
+    id: 'gift_card_300',
+    name: 'כרטיס מתנה ₪300',
+    description: 'כרטיס מתנה דיגיטלי בשווי ₪300, מספיק למארז דמדומים. הקוד נשלח במייל מיד אחרי התשלום, ואפשר לממש אותו על כל מה שבאתר.',
+    image: '/boxes/gift-card.svg',
+    price: 300,
+    category: 'giftcard',
+    isPremium: false,
+    shippingIncluded: true,
+    giftCard: true,
+    reviews: { rating: 5.0, count: 0 }
+  },
+  {
+    id: 'gift_card_600',
+    name: 'כרטיס מתנה ₪600',
+    description: 'כרטיס מתנה דיגיטלי בשווי ₪600, מספיק למארז חצות. הקוד נשלח במייל מיד אחרי התשלום, ואפשר לממש אותו על כל מה שבאתר.',
+    image: '/boxes/gift-card.svg',
+    price: 600,
+    category: 'giftcard',
+    isPremium: false,
+    shippingIncluded: true,
+    giftCard: true,
+    reviews: { rating: 5.0, count: 0 }
+  },
+  {
+    id: 'gift_card_900',
+    name: 'כרטיס מתנה ₪900',
+    description: 'כרטיס מתנה דיגיטלי בשווי ₪900, מספיק למארז עד אור הבוקר. הקוד נשלח במייל מיד אחרי התשלום, ואפשר לממש אותו על כל מה שבאתר.',
+    image: '/boxes/gift-card.svg',
+    price: 900,
+    category: 'giftcard',
+    isPremium: false,
+    shippingIncluded: true,
+    giftCard: true,
+    reviews: { rating: 5.0, count: 0 }
   }
 ];
